@@ -1,0 +1,2922 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema Integral RRHH — BEMAX SPA</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- SQL.js (SQLite in WebAssembly) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+  <!-- PDF.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- SheetJS (xlsx) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- HTML5-QRCode -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            bemax: {
+              dark: '#0F172A',
+              slate: '#1E293B',
+              blue: '#2563EB',
+              emerald: '#16A34A',
+              amber: '#D97706',
+              crimson: '#DC2626'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; color: #0F172A; }
+    /* Custom subtle scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #F1F5F9; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+    .tab-active {
+      background-color: #2563EB;
+      color: #FFFFFF;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+    .glass-card {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 14px;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    .pulse-danger {
+      animation: pulseRed 2s infinite;
+    }
+    @keyframes pulseRed {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.35); }
+      50% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOP NAVIGATION HEADER -->
+  <header class="bg-[#0F172A] text-white sticky top-0 z-40 shadow-lg border-b border-slate-800">
+    <div class="max-w-[1600px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <!-- Brand -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-extrabold text-lg shadow-md">
+          BX
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-base sm:text-lg tracking-tight">SISTEMA INTEGRAL RRHH</h1>
+            <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">BEMAX SPA</span>
+          </div>
+          <p class="text-xs text-slate-400 flex items-center gap-2">
+            <span id="dbStatusBadge" class="inline-flex items-center gap-1 text-emerald-400 font-medium">
+              <i class="fa-solid fa-database text-[10px]"></i> SQLite Activo (LocalStorage)
+            </span>
+            <span>•</span>
+            <span id="clockDisplay">Cargando fecha...</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Global Action Buttons (SQLite, Excel, Demo Data, PDF Drawer) -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="openPdfModal()" class="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold flex items-center gap-2 transition shadow-sm">
+          <i class="fa-solid fa-file-pdf"></i>
+          <span>Lector PDF Inteligente</span>
+        </button>
+
+        <label class="cursor-pointer px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs sm:text-sm font-medium flex items-center gap-2 transition">
+          <i class="fa-solid fa-upload text-amber-400"></i>
+          <span>Importar .DB</span>
+          <input type="file" id="sqliteImportInput" accept=".db,.sqlite,.sqlite3" class="hidden" onchange="importSqliteFile(event)" />
+        </label>
+
+        <button onclick="exportSqliteFile()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs sm:text-sm font-medium flex items-center gap-2 transition" title="Descargar base de datos SQLite actualizada">
+          <i class="fa-solid fa-download text-sky-400"></i>
+          <span class="hidden md:inline">Exportar .DB</span>
+        </button>
+
+        <button onclick="exportExcelConsolidado()" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-semibold flex items-center gap-2 transition shadow-sm" title="Exportar 4 hojas en Excel">
+          <i class="fa-solid fa-file-excel"></i>
+          <span class="hidden sm:inline">Excel 4 Hojas</span>
+        </button>
+
+        <button onclick="confirmLoadDemoData()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium flex items-center gap-1.5 transition" title="Cargar registros reales de muestra BEMAX">
+          <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i>
+          <span class="hidden xl:inline">Datos Muestra</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- MAIN MODULE NAVIGATION TABS -->
+    <div class="bg-slate-900/90 border-t border-slate-800 px-4 py-2 overflow-x-auto">
+      <div class="max-w-[1600px] mx-auto flex items-center gap-1.5 min-w-max">
+        <button onclick="switchTab('general')" id="tab-btn-general" class="tab-btn tab-active px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition">
+          <i class="fa-solid fa-users-gear"></i> 1. Base General (Exámenes)
+        </button>
+        <button onclick="switchTab('proyeccion')" id="tab-btn-proyeccion" class="tab-btn text-slate-300 hover:bg-slate-800 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition">
+          <i class="fa-solid fa-calendar-plus"></i> 2. Proyección Semana & Sheets
+        </button>
+        <button onclick="switchTab('semanal')" id="tab-btn-semanal" class="tab-btn text-slate-300 hover:bg-slate-800 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition">
+          <i class="fa-solid fa-clipboard-check"></i> 3. Control Semana (Contratados)
+        </button>
+        <button onclick="switchTab('dashboard')" id="tab-btn-dashboard" class="tab-btn text-slate-300 hover:bg-slate-800 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition">
+          <i class="fa-solid fa-chart-pie"></i> 4. Dashboard & Gráficos
+        </button>
+        <button onclick="switchTab('garita')" id="tab-btn-garita" class="tab-btn text-slate-300 hover:bg-slate-800 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition">
+          <i class="fa-solid fa-qrcode text-emerald-400"></i> 5. Control Garita / QR Carnet
+        </button>
+        <button onclick="switchTab('pasajes')" id="tab-btn-pasajes" class="tab-btn text-slate-300 hover:bg-slate-800 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition">
+          <i class="fa-solid fa-bus text-sky-400"></i> 6. Control Pasajes
+        </button>
+        <button onclick="switchTab('finiquitos')" id="tab-btn-finiquitos" class="tab-btn text-slate-300 hover:bg-slate-800 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-2 transition">
+          <i class="fa-solid fa-file-signature text-amber-400"></i> 7. Control Finiquitos
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- TOAST / NOTIFICATION CONTAINER -->
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-md pointer-events-none"></div>
+
+  <!-- MAIN WORKSPACE -->
+  <main class="flex-1 max-w-[1600px] w-full mx-auto px-4 py-5 space-y-5">
+
+    <!-- =====================================================================
+         PESTAÑA 1: BASE DE DATOS GENERAL (EXAMENES)
+         ===================================================================== -->
+    <section id="view-general" class="tab-view space-y-5">
+      <!-- Operational Alert Banner -->
+      <div id="alertBanner" class="glass-card p-3.5 border-l-4 border-l-blue-600 flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-slate-900 to-slate-800 text-white">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-300 flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-tower-broadcast"></i>
+          </div>
+          <div>
+            <div class="text-xs uppercase tracking-wider text-blue-300 font-bold" id="windowStatusTitle">Estado Operativo Semanal</div>
+            <div class="text-sm text-slate-200" id="alertBannerSummary">Analizando registros de trabajadores...</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="openWorkerModal()" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-2 shadow transition">
+            <i class="fa-solid fa-user-plus"></i> Nuevo Trabajador
+          </button>
+        </div>
+      </div>
+
+      <!-- 8 Interactive KPI Cards -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        <button onclick="setQuickFilter('ALL')" class="kpi-card glass-card p-3.5 text-left hover:border-blue-400 transition group">
+          <div class="text-xs font-semibold text-slate-500 flex items-center justify-between">
+            <span>Total Nómina</span>
+            <i class="fa-solid fa-users text-slate-400 group-hover:text-blue-600"></i>
+          </div>
+          <div id="kpi-total" class="text-2xl font-extrabold text-slate-900 mt-1">0</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Registros únicos</div>
+        </button>
+
+        <button onclick="setQuickFilter('POSITIVO')" class="kpi-card glass-card p-3.5 text-left hover:border-red-500 transition group">
+          <div class="text-xs font-semibold text-red-600 flex items-center justify-between">
+            <span>Positivos A&D</span>
+            <i class="fa-solid fa-triangle-exclamation text-red-500"></i>
+          </div>
+          <div id="kpi-positivos" class="text-2xl font-extrabold text-red-600 mt-1">0</div>
+          <div class="text-[11px] text-red-400 mt-0.5">Alerta crítica</div>
+        </button>
+
+        <button onclick="setQuickFilter('PRIORIDAD_AYD')" class="kpi-card glass-card p-3.5 text-left hover:border-amber-500 transition group">
+          <div class="text-xs font-semibold text-amber-600 flex items-center justify-between">
+            <span>A&D Vence ≤7d</span>
+            <i class="fa-solid fa-clock text-amber-500"></i>
+          </div>
+          <div id="kpi-vencer" class="text-2xl font-extrabold text-amber-600 mt-1">0</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Prioridad semanal</div>
+        </button>
+
+        <button onclick="setQuickFilter('PRORROGA')" class="kpi-card glass-card p-3.5 text-left hover:border-indigo-500 transition group">
+          <div class="text-xs font-semibold text-indigo-600 flex items-center justify-between">
+            <span>Con Prórroga</span>
+            <i class="fa-solid fa-calendar-check text-indigo-500"></i>
+          </div>
+          <div id="kpi-prorroga" class="text-2xl font-extrabold text-indigo-600 mt-1">0</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Extensión vigente</div>
+        </button>
+
+        <button onclick="setQuickFilter('PREOC_OK')" class="kpi-card glass-card p-3.5 text-left hover:border-teal-500 transition group">
+          <div class="text-xs font-semibold text-teal-600 flex items-center justify-between">
+            <span>Preocup. OK</span>
+            <i class="fa-solid fa-heart-pulse text-teal-500"></i>
+          </div>
+          <div id="kpi-preoc" class="text-2xl font-extrabold text-teal-700 mt-1">0</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Batería vigente</div>
+        </button>
+
+        <button onclick="setQuickFilter('FIRMADOS')" class="kpi-card glass-card p-3.5 text-left hover:border-blue-500 transition group">
+          <div class="text-xs font-semibold text-blue-600 flex items-center justify-between">
+            <span>Defontana 2/2</span>
+            <i class="fa-solid fa-file-contract text-blue-500"></i>
+          </div>
+          <div id="kpi-firmados" class="text-2xl font-extrabold text-blue-700 mt-1">0</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Contratos firmados</div>
+        </button>
+
+        <button onclick="setQuickFilter('SIGA')" class="kpi-card glass-card p-3.5 text-left hover:border-purple-500 transition group">
+          <div class="text-xs font-semibold text-purple-600 flex items-center justify-between">
+            <span>Acreditado SIGA</span>
+            <i class="fa-solid fa-id-card-clip text-purple-500"></i>
+          </div>
+          <div id="kpi-siga" class="text-2xl font-extrabold text-purple-700 mt-1">0</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Pase aprobado</div>
+        </button>
+
+        <button onclick="setQuickFilter('EN_FAENA')" class="kpi-card glass-card p-3.5 text-left hover:border-emerald-500 transition group">
+          <div class="text-xs font-semibold text-emerald-600 flex items-center justify-between">
+            <span>En Faena</span>
+            <i class="fa-solid fa-helmet-safety text-emerald-600"></i>
+          </div>
+          <div id="kpi-faena" class="text-2xl font-extrabold text-emerald-600 mt-1">0</div>
+          <div class="text-[11px] text-slate-400 mt-0.5">Acreditados en turno</div>
+        </button>
+      </div>
+
+      <!-- Search & Filter Toolbar -->
+      <div class="glass-card p-4 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+        <div class="relative flex-1">
+          <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input type="text" id="generalSearchInput" oninput="renderGeneralTable()" placeholder="Buscar por RUT, Nombre, Cargo, Clínica, Contrato, Semana o Estado..." class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="generalQuickFilter" onchange="renderGeneralTable()" class="px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="ALL">Filtro: Todos los registros</option>
+            <option value="PRIORIDAD_AYD">⚠️ Prioridad Semanal A&D (Vence ≤7d / Vencido)</option>
+            <option value="POSITIVO">🚨 Positivos A&D</option>
+            <option value="PRORROGA">📅 Con Prórroga A&D</option>
+            <option value="EN_FAENA">👷 En Faena</option>
+            <option value="PENDIENTE_SUBIR">📤 Pendiente Subir Plataforma</option>
+            <option value="PENDIENTE_CARTA">📝 Pendientes Carta Conductora</option>
+            <option value="VALIDADO_CARTA">✅ Validados Carta Conductora</option>
+            <option value="FIRMADOS">✍️ Firmados Defontana (2/2)</option>
+            <option value="CON_SEMANA">🗓️ Con Semana Asignada</option>
+            <option value="SIN_SEMANA">❓ Sin Semana Asignada</option>
+            <option value="CONTRATADO_FIJO">♾️ Contratado Fijo (Exento 30d)</option>
+            <option value="SIGA">🪪 Acreditado SIGA</option>
+            <option value="PREOC_OK">🩺 Preocupacional Vigente</option>
+          </select>
+
+          <select id="generalContractFilter" onchange="renderGeneralTable()" class="px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="ALL">Contrato: Todos</option>
+          </select>
+
+          <button onclick="resetGeneralFilters()" class="px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">
+            Limpiar
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Workers Data Table -->
+      <div class="glass-card overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-900 text-slate-200 text-[11px] uppercase tracking-wider">
+                <th class="py-3 px-3">Trabajador / RUT</th>
+                <th class="py-3 px-3">Cargo / Especialidad</th>
+                <th class="py-3 px-3">Semana / Contrato</th>
+                <th class="py-3 px-3">Estado A&D (30d / Prórroga)</th>
+                <th class="py-3 px-3">Batería Preocupacional</th>
+                <th class="py-3 px-3 text-center">Defontana / QR</th>
+                <th class="py-3 px-3 text-center">SIGA / Carta</th>
+                <th class="py-3 px-3 text-center">Faena / Fijo</th>
+                <th class="py-3 px-3 text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="generalTableBody" class="divide-y divide-slate-200 text-xs">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+        <div class="bg-slate-50 px-4 py-2.5 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
+          <span id="generalTableCount">Mostrando 0 registros</span>
+          <span>Clic en las insignias para alternar estados en tiempo real</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         PESTAÑA 2: PROYECCIÓN SEMANA (RRHH + GOOGLE SHEETS)
+         ===================================================================== -->
+    <section id="view-proyeccion" class="tab-view hidden space-y-5">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- Left Panel: Google Sheets Sync & Bulk RUT Input -->
+        <div class="space-y-5">
+          <!-- Google Sheets / CSV Sync -->
+          <div class="glass-card p-4 space-y-3">
+            <div class="flex items-center justify-between">
+              <h2 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+                <i class="fa-brands fa-google-drive text-emerald-600"></i> Sincronizar Ficha Postulantes (Sheets / CSV)
+              </h2>
+              <span id="sheetsCountBadge" class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">0 fichas</span>
+            </div>
+            <p class="text-xs text-slate-500">Conecta una URL pública CSV de Google Sheets o sube un archivo CSV con columnas: RUT, Nombre, Cargo, Teléfono, Correo, Banco, Tipo y N° Cuenta.</p>
+            <input type="url" id="googleSheetsUrl" placeholder="https://docs.google.com/spreadsheets/d/.../export?format=csv" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            <div class="flex items-center gap-2">
+              <button onclick="syncGoogleSheetsUrl()" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+                <i class="fa-solid fa-rotate"></i> Sincronizar URL
+              </button>
+              <label class="cursor-pointer py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-file-csv"></i> Subir CSV
+                <input type="file" accept=".csv" class="hidden" onchange="importSheetsCsvFile(event)" />
+              </label>
+            </div>
+          </div>
+
+          <!-- Bulk RUT Input for Weekly Projection -->
+          <div class="glass-card p-4 space-y-3">
+            <h2 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-list-check text-blue-600"></i> Ingreso Masivo Proyección Semanal
+            </h2>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Semana Ingreso</label>
+                <input type="text" id="projSemanaInput" value="S48-2026" placeholder="Ej: S48-2026" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-600 mb-1">Contrato Mandante</label>
+                <input type="text" id="projContratoInput" value="4540008992" placeholder="Ej: 4540008992" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-600 mb-1">Pegar lista de RUTs (uno por línea o separados por coma)</label>
+              <textarea id="projRutsTextarea" rows="5" placeholder="18.456.789-2&#10;16.234.890-K&#10;19.876.543-1" class="w-full p-3 rounded-xl border border-slate-300 text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+            </div>
+            <button onclick="processBulkProjectionRuts()" class="w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center justify-center gap-2 shadow transition">
+              <i class="fa-solid fa-bolt"></i> Cruzar y Agregar a Proyección
+            </button>
+          </div>
+        </div>
+
+        <!-- Right Panel: Projection Table -->
+        <div class="lg:col-span-2 glass-card overflow-hidden flex flex-col">
+          <div class="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50">
+            <div>
+              <h3 class="font-bold text-sm text-slate-900">Nómina Proyectada RRHH (Cruce Automático)</h3>
+              <p class="text-xs text-slate-500">Cruza Ficha Postulantes + Base Exámenes + Contratos Defontana</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="projFilterSemana" onchange="renderProyeccionTable()" class="px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-xs font-semibold">
+                <option value="ALL">Todas las Semanas</option>
+              </select>
+              <button onclick="promoteProjectedToBase()" class="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1.5">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> Sincronizar a Base General
+              </button>
+            </div>
+          </div>
+          <div class="overflow-x-auto flex-1">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-900 text-slate-200 text-[11px] uppercase tracking-wider">
+                  <th class="py-3 px-3">Semana / Contrato</th>
+                  <th class="py-3 px-3">RUT / Postulante</th>
+                  <th class="py-3 px-3">Cargo & Contacto</th>
+                  <th class="py-3 px-3">Datos Bancarios</th>
+                  <th class="py-3 px-3">Estado Cruce RRHH</th>
+                  <th class="py-3 px-3 text-right">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="proyeccionTableBody" class="divide-y divide-slate-200 text-xs">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         PESTAÑA 3: CONTROL POR SEMANA (CONTRATADOS)
+         ===================================================================== -->
+    <section id="view-semanal" class="tab-view hidden space-y-5">
+      <div class="glass-card p-4 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex flex-wrap items-center gap-3">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-500 uppercase">Seleccionar Semana</label>
+            <select id="semanalSelectSemana" onchange="renderSemanalView()" class="mt-1 px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-800 min-w-[160px]">
+              <option value="ALL">Todas las Semanas</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-500 uppercase">Contrato Mandante</label>
+            <select id="semanalSelectContrato" onchange="renderSemanalView()" class="mt-1 px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm font-bold text-slate-800 min-w-[180px]">
+              <option value="ALL">Todos los Contratos</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Editable Target Goal -->
+        <div class="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-500 uppercase">Meta Dotación Semana</label>
+            <div class="flex items-center gap-2 mt-1">
+              <input type="number" id="metaDotacionInput" min="1" value="25" class="w-20 px-2.5 py-1.5 rounded-lg border border-slate-300 text-sm font-extrabold text-center" />
+              <button onclick="saveWeeklyMeta()" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold">Guardar Meta</button>
+            </div>
+          </div>
+          <div class="h-10 w-px bg-slate-200"></div>
+          <div class="text-right">
+            <div class="text-[11px] font-bold text-slate-500 uppercase">Cumplimiento</div>
+            <div id="semanalCumplimientoPct" class="text-2xl font-extrabold text-emerald-600">0%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary Progress Bars -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="glass-card p-4">
+          <div class="text-xs font-semibold text-slate-500">Asignados en Semana</div>
+          <div id="sem-stat-asignados" class="text-2xl font-extrabold text-slate-900 mt-1">0</div>
+          <div class="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden">
+            <div id="sem-bar-asignados" class="bg-blue-600 h-full transition-all" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="glass-card p-4">
+          <div class="text-xs font-semibold text-slate-500">Con Exámenes OK</div>
+          <div id="sem-stat-examenes" class="text-2xl font-extrabold text-teal-600 mt-1">0</div>
+          <div class="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden">
+            <div id="sem-bar-examenes" class="bg-teal-500 h-full transition-all" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="glass-card p-4">
+          <div class="text-xs font-semibold text-slate-500">Contratos Firmados (2/2)</div>
+          <div id="sem-stat-firmados" class="text-2xl font-extrabold text-indigo-600 mt-1">0</div>
+          <div class="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden">
+            <div id="sem-bar-firmados" class="bg-indigo-600 h-full transition-all" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="glass-card p-4">
+          <div class="text-xs font-semibold text-slate-500">En Faena / Acreditados</div>
+          <div id="sem-stat-faena" class="text-2xl font-extrabold text-emerald-600 mt-1">0</div>
+          <div class="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden">
+            <div id="sem-bar-faena" class="bg-emerald-600 h-full transition-all" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtered Weekly Table -->
+      <div class="glass-card overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-900 text-slate-200 text-[11px] uppercase tracking-wider">
+                <th class="py-3 px-3">Semana</th>
+                <th class="py-3 px-3">Contrato</th>
+                <th class="py-3 px-3">Trabajador / RUT</th>
+                <th class="py-3 px-3">Cargo</th>
+                <th class="py-3 px-3">N° Contrato Defontana</th>
+                <th class="py-3 px-3">Exámenes</th>
+                <th class="py-3 px-3 text-center">Firma 2/2</th>
+                <th class="py-3 px-3 text-center">SIGA</th>
+                <th class="py-3 px-3 text-center">En Faena</th>
+              </tr>
+            </thead>
+            <tbody id="semanalTableBody" class="divide-y divide-slate-200 text-xs">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         PESTAÑA 4: DASHBOARD & GRÁFICOS EJECUTIVOS
+         ===================================================================== -->
+    <section id="view-dashboard" class="tab-view hidden space-y-5">
+      <!-- 5 Circular Gauges -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div class="glass-card p-4 flex flex-col items-center text-center">
+          <div class="text-xs font-bold text-slate-600 uppercase mb-2">1. Reclutamiento vs Meta</div>
+          <div class="relative w-28 h-28">
+            <canvas id="gaugeReclutamiento"></canvas>
+            <div id="gaugeValReclutamiento" class="absolute inset-0 flex items-center justify-center font-extrabold text-lg text-slate-900">0%</div>
+          </div>
+          <div id="gaugeSubReclutamiento" class="text-[11px] text-slate-500 mt-2">0 / 25 meta</div>
+        </div>
+
+        <div class="glass-card p-4 flex flex-col items-center text-center">
+          <div class="text-xs font-bold text-slate-600 uppercase mb-2">2. Exámenes / Prórroga OK</div>
+          <div class="relative w-28 h-28">
+            <canvas id="gaugeExamenes"></canvas>
+            <div id="gaugeValExamenes" class="absolute inset-0 flex items-center justify-center font-extrabold text-lg text-teal-700">0%</div>
+          </div>
+          <div id="gaugeSubExamenes" class="text-[11px] text-slate-500 mt-2">0 vigentes</div>
+        </div>
+
+        <div class="glass-card p-4 flex flex-col items-center text-center">
+          <div class="text-xs font-bold text-slate-600 uppercase mb-2">3. Contratos Defontana</div>
+          <div class="relative w-28 h-28">
+            <canvas id="gaugeContratos"></canvas>
+            <div id="gaugeValContratos" class="absolute inset-0 flex items-center justify-center font-extrabold text-lg text-blue-700">0%</div>
+          </div>
+          <div id="gaugeSubContratos" class="text-[11px] text-slate-500 mt-2">0 firmados 2/2</div>
+        </div>
+
+        <div class="glass-card p-4 flex flex-col items-center text-center">
+          <div class="text-xs font-bold text-slate-600 uppercase mb-2">4. Acreditados SIGA</div>
+          <div class="relative w-28 h-28">
+            <canvas id="gaugeSiga"></canvas>
+            <div id="gaugeValSiga" class="absolute inset-0 flex items-center justify-center font-extrabold text-lg text-purple-700">0%</div>
+          </div>
+          <div id="gaugeSubSiga" class="text-[11px] text-slate-500 mt-2">0 acreditados</div>
+        </div>
+
+        <div class="glass-card p-4 flex flex-col items-center text-center col-span-2 sm:col-span-1">
+          <div class="text-xs font-bold text-slate-600 uppercase mb-2">5. Dotación En Faena</div>
+          <div class="relative w-28 h-28">
+            <canvas id="gaugeFaena"></canvas>
+            <div id="gaugeValFaena" class="absolute inset-0 flex items-center justify-center font-extrabold text-lg text-emerald-600">0%</div>
+          </div>
+          <div id="gaugeSubFaena" class="text-[11px] text-slate-500 mt-2">0 en turno</div>
+        </div>
+      </div>
+
+      <!-- Interactive Funnel & Specialty Chart -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- Pipeline Funnel -->
+        <div class="lg:col-span-2 glass-card p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-bold text-base text-slate-900">Embudo Pipeline RRHH Interactivo</h3>
+              <p class="text-xs text-slate-500">Haz clic en cualquier barra del embudo para ver quiénes completaron y quiénes faltan en esa etapa</p>
+            </div>
+          </div>
+          <div class="h-72">
+            <canvas id="funnelChart"></canvas>
+          </div>
+          <!-- Funnel Drilldown Drawer -->
+          <div id="funnelDetailBox" class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 hidden">
+            <div class="flex items-center justify-between mb-2">
+              <span id="funnelDetailTitle" class="font-bold text-xs text-slate-800 uppercase">Detalle Etapa</span>
+              <button onclick="document.getElementById('funnelDetailBox').classList.add('hidden')" class="text-xs text-slate-400 hover:text-slate-700"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div>
+                <div class="font-semibold text-emerald-700 mb-1"><i class="fa-solid fa-circle-check"></i> Completados (<span id="funnelOkCount">0</span>)</div>
+                <div id="funnelOkList" class="max-h-32 overflow-y-auto space-y-1 text-slate-600"></div>
+              </div>
+              <div>
+                <div class="font-semibold text-amber-700 mb-1"><i class="fa-solid fa-hourglass-half"></i> Pendientes (<span id="funnelPendingCount">0</span>)</div>
+                <div id="funnelPendingList" class="max-h-32 overflow-y-auto space-y-1 text-slate-600"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Specialty Distribution -->
+        <div class="glass-card p-5 flex flex-col justify-between space-y-4">
+          <div>
+            <h3 class="font-bold text-base text-slate-900">Dotación por Especialidad</h3>
+            <p class="text-xs text-slate-500">Distribución de Mecánicos, Soldadores y Otros Cargos</p>
+          </div>
+          <div class="h-64 flex items-center justify-center">
+            <canvas id="specialtyChart"></canvas>
+          </div>
+          <div id="specialtyLegend" class="grid grid-cols-3 gap-2 text-center text-xs pt-2 border-t border-slate-100">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         PESTAÑA 5: CONTROL GARITA / QR CARNET
+         ===================================================================== -->
+    <section id="view-garita" class="tab-view hidden space-y-5">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Left: QR Scanner & Manual / USB Gun Input -->
+        <div class="lg:col-span-5 glass-card p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="font-bold text-base text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-qrcode text-blue-600"></i> Control Acceso Garita / Carnet
+            </h2>
+            <button id="toggleCameraBtn" onclick="toggleQrCamera()" class="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-camera"></i> Activar Cámara
+            </button>
+          </div>
+
+          <!-- Camera Viewport -->
+          <div id="qrReaderWrapper" class="hidden rounded-xl overflow-hidden border-2 border-blue-500 bg-black">
+            <div id="qr-reader" class="w-full"></div>
+          </div>
+
+          <!-- Rapid USB Gun / URL / RUT Input -->
+          <div class="space-y-2">
+            <label class="block text-xs font-bold text-slate-700">Pistola QR USB, Link Registro Civil o RUT:</label>
+            <div class="flex gap-2">
+              <input type="text" id="garitaScanInput" onkeydown="if(event.key==='Enter') verifyGaritaAccess()" placeholder="Ej: https://portal.sidiv.registrocivil.cl/docstatus?RUN=18.456.789-2 o RUT" class="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <button onclick="verifyGaritaAccess()" class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow">
+                Validar
+              </button>
+            </div>
+            <p class="text-[11px] text-slate-400">Soporta lectura directa del QR trasero de Cédula de Identidad Chilena (extracto automático de RUN).</p>
+          </div>
+
+          <!-- Recent Garita Access Log -->
+          <div class="pt-3 border-t border-slate-200">
+            <h3 class="text-xs font-bold text-slate-600 uppercase mb-2">Últimos Controles en Garita</h3>
+            <div id="garitaHistoryList" class="space-y-2 max-h-56 overflow-y-auto text-xs">
+              <div class="text-slate-400 italic">Aún no se registran escaneos en esta sesión.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Traffic Light Semaphore Result -->
+        <div class="lg:col-span-7 glass-card p-6 flex flex-col justify-center items-center text-center min-h-[380px]" id="garitaSemaphoreCard">
+          <div id="semaphoreIconBox" class="w-24 h-24 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-4xl mb-4 shadow-inner">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <div id="semaphoreBadge" class="px-4 py-1 rounded-full bg-slate-200 text-slate-700 text-xs font-extrabold uppercase tracking-wider mb-2">
+            ESPERANDO LECTURA DE CARNET O RUT
+          </div>
+          <h3 id="semaphoreWorkerName" class="text-2xl font-extrabold text-slate-900">Escanee un trabajador para verificar habilitación</h3>
+          <p id="semaphoreReason" class="text-sm text-slate-500 max-w-lg mt-2">
+            El sistema verificará vigencia de examen Alcohol & Drogas (30 días o prórroga), resultado negativo, batería preocupacional, contrato Defontana y acreditación SIGA.
+          </p>
+          <div id="semaphoreDetailsGrid" class="hidden grid-cols-2 sm:grid-cols-4 gap-3 w-full mt-6 text-left">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         PESTAÑA 6: CONTROL DE PASAJES
+         ===================================================================== -->
+    <section id="view-pasajes" class="tab-view hidden space-y-5">
+      <!-- KPIs Pasajes -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="glass-card p-4">
+          <div class="text-xs font-semibold text-slate-500">Total Pasajes Registrados</div>
+          <div id="pas-kpi-total" class="text-2xl font-extrabold text-slate-900 mt-1">0</div>
+        </div>
+        <div class="glass-card p-4">
+          <div class="text-xs font-semibold text-slate-500">Inversión Total CLP</div>
+          <div id="pas-kpi-monto" class="text-2xl font-extrabold text-sky-600 mt-1">$0</div>
+        </div>
+        <div class="glass-card p-4">
+          <div class="text-xs font-semibold text-slate-500">Salón Cama</div>
+          <div id="pas-kpi-cama" class="text-2xl font-extrabold text-indigo-600 mt-1">0</div>
+        </div>
+        <div class="glass-card p-4">
+          <div class="text-xs font-semibold text-slate-500">Semi Cama / Otros</div>
+          <div id="pas-kpi-semicama" class="text-2xl font-extrabold text-slate-700 mt-1">0</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- Chart Pasajes por Semana -->
+        <div class="glass-card p-4 flex flex-col justify-between">
+          <div>
+            <h3 class="font-bold text-sm text-slate-900">Gasto en Pasajes por Semana (CLP)</h3>
+            <p class="text-xs text-slate-500">PlussChile / Kupos.cl / Otros</p>
+          </div>
+          <div class="h-60 mt-3">
+            <canvas id="pasajesChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Table + Add Manual Pasaje -->
+        <div class="lg:col-span-2 glass-card overflow-hidden flex flex-col">
+          <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <h3 class="font-bold text-sm text-slate-900">Registro de Boletos y Traslados</h3>
+            <button onclick="openPasajeModal()" class="px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold flex items-center gap-1.5">
+              <i class="fa-solid fa-plus"></i> Agregar Pasaje
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-900 text-slate-200 text-[11px] uppercase tracking-wider">
+                  <th class="py-3 px-3">Boleto / Empresa</th>
+                  <th class="py-3 px-3">Pasajero / RUT</th>
+                  <th class="py-3 px-3">Tramo / Fecha</th>
+                  <th class="py-3 px-3">Servicio</th>
+                  <th class="py-3 px-3">Semana / Contrato</th>
+                  <th class="py-3 px-3 text-right">Monto CLP</th>
+                  <th class="py-3 px-3 text-right">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="pasajesTableBody" class="divide-y divide-slate-200 text-xs">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =====================================================================
+         PESTAÑA 7: CONTROL DE FINIQUITOS
+         ===================================================================== -->
+    <section id="view-finiquitos" class="tab-view hidden space-y-5">
+      <!-- KPIs Finiquitos -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="glass-card p-4">
+          <div class="text-xs font-semibold text-slate-500">Total Finiquitos</div>
+          <div id="fin-kpi-total" class="text-2xl font-extrabold text-slate-900 mt-1">0</div>
+        </div>
+        <div class="glass-card p-4">
+          <div class="text-xs font-semibold text-slate-500">Monto Total Liquidado</div>
+          <div id="fin-kpi-monto" class="text-2xl font-extrabold text-amber-600 mt-1">$0</div>
+        </div>
+        <div class="glass-card p-4">
+          <div class="text-xs font-semibold text-slate-500">Firmados Defontana</div>
+          <div id="fin-kpi-firmados" class="text-2xl font-extrabold text-emerald-600 mt-1">0</div>
+        </div>
+        <div class="glass-card p-4">
+          <div class="text-xs font-semibold text-slate-500">Pendientes de Firma/Pago</div>
+          <div id="fin-kpi-pendientes" class="text-2xl font-extrabold text-red-600 mt-1">0</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <!-- Chart Finiquitos por Contrato -->
+        <div class="glass-card p-4 flex flex-col justify-between">
+          <div>
+            <h3 class="font-bold text-sm text-slate-900">Finiquitos por Contrato (CLP)</h3>
+            <p class="text-xs text-slate-500">Cruce automático con cuentas bancarias</p>
+          </div>
+          <div class="h-60 mt-3">
+            <canvas id="finiquitosChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Finiquitos Table -->
+        <div class="lg:col-span-2 glass-card overflow-hidden flex flex-col">
+          <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <h3 class="font-bold text-sm text-slate-900">Control de Finiquitos y Pagos Bancarios</h3>
+            <button onclick="openFiniquitoModal()" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold flex items-center gap-1.5">
+              <i class="fa-solid fa-plus"></i> Nuevo Finiquito
+            </button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-900 text-slate-200 text-[11px] uppercase tracking-wider">
+                  <th class="py-3 px-3">Trabajador / RUT</th>
+                  <th class="py-3 px-3">Período / Contrato</th>
+                  <th class="py-3 px-3">Datos Bancarios (Sheets)</th>
+                  <th class="py-3 px-3 text-right">Total a Pagar</th>
+                  <th class="py-3 px-3 text-center">Firma Defontana</th>
+                  <th class="py-3 px-3 text-right">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="finiquitosTableBody" class="divide-y divide-slate-200 text-xs">
+                <!-- Populated by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- =======================================================================
+       MODAL 1: LECTOR INTELIGENTE DE PDFs (PDF.js)
+       ======================================================================= -->
+  <div id="pdfModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-3xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="bg-slate-900 text-white px-5 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <i class="fa-solid fa-file-pdf text-red-400 text-lg"></i>
+          <div>
+            <h3 class="font-bold text-sm sm:text-base">Lector Inteligente de Documentos PDF — BEMAX SPA</h3>
+            <p class="text-[11px] text-slate-400">Clasifica automáticamente Exámenes A&D, Preocupacionales, Cartas, Contratos Defontana, Pasajes y Finiquitos</p>
+          </div>
+        </div>
+        <button onclick="closePdfModal()" class="text-slate-400 hover:text-white p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+
+      <div class="p-5 overflow-y-auto space-y-4">
+        <!-- Dropzone -->
+        <div id="pdfDropzone" onclick="document.getElementById('pdfFileInput').click()" class="border-2 border-dashed border-blue-400 bg-blue-50/50 hover:bg-blue-50 rounded-2xl p-8 text-center cursor-pointer transition">
+          <i class="fa-solid fa-cloud-arrow-up text-4xl text-blue-600 mb-2"></i>
+          <p class="font-bold text-sm text-slate-800">Arrastra y suelta múltiples archivos PDF aquí o haz clic para seleccionar</p>
+          <p class="text-xs text-slate-500 mt-1">Soporta: CLINISERVICE / PREOMED (A&D y Preocupacionales), Contratos Defontana, Cartas Prórroga, Pasajes PlussChile/Kupos, Finiquitos</p>
+          <input type="file" id="pdfFileInput" accept=".pdf" multiple class="hidden" onchange="handlePdfFiles(this.files)" />
+        </div>
+
+        <!-- Processing Logs -->
+        <div id="pdfResultsContainer" class="space-y-2 hidden">
+          <div class="flex items-center justify-between">
+            <h4 class="font-bold text-xs uppercase text-slate-600">Resultados del Análisis Automático</h4>
+            <button onclick="document.getElementById('pdfResultsList').innerHTML=''" class="text-xs text-slate-400 hover:text-slate-700">Limpiar log</button>
+          </div>
+          <div id="pdfResultsList" class="space-y-2 max-h-64 overflow-y-auto"></div>
+        </div>
+      </div>
+
+      <div class="bg-slate-50 px-5 py-3 border-t border-slate-200 flex justify-end">
+        <button onclick="closePdfModal()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL 2: CREAR / EDITAR TRABAJADOR (BASE GENERAL)
+       ======================================================================= -->
+  <div id="workerModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+        <h3 id="workerModalTitle" class="font-bold text-sm">Ficha de Trabajador</h3>
+        <button onclick="closeWorkerModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form id="workerForm" onsubmit="saveWorkerForm(event)" class="p-5 overflow-y-auto space-y-3 text-xs">
+        <input type="hidden" id="wf-id" />
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="font-bold text-slate-700">RUT *</label>
+            <input type="text" id="wf-rut" required placeholder="18.456.789-2" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Nombre Completo *</label>
+            <input type="text" id="wf-nombre" required placeholder="JUAN PEREZ SOTO" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 uppercase" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Cargo / Especialidad</label>
+            <input type="text" id="wf-cargo" placeholder="SOLDADOR CALIFICADO / MECANICO" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 uppercase" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Clínica / Centro Médico</label>
+            <select id="wf-clinica" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">
+              <option value="CLINISERVICE">CLINISERVICE</option>
+              <option value="PREOMED">PREOMED</option>
+              <option value="ACHS">ACHS</option>
+              <option value="MUTUAL">MUTUAL</option>
+              <option value="OTRA">OTRA</option>
+            </select>
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Fecha Examen A&D (YYYY-MM-DD)</label>
+            <input type="date" id="wf-fecha-ayd" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Resultado A&D</label>
+            <select id="wf-res-ayd" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">
+              <option value="NEGATIVO">NEGATIVO</option>
+              <option value="POSITIVO">POSITIVO (ALERTA)</option>
+              <option value="PENDIENTE">PENDIENTE</option>
+            </select>
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Detalle Sustancia (si Positivo)</label>
+            <input type="text" id="wf-detalle-pos" placeholder="Ej: THC / Marihuana" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Fecha Venc. Prórroga A&D</label>
+            <input type="date" id="wf-prorroga" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Batería Preocupacional</label>
+            <select id="wf-bateria" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">
+              <option value="Batería Normal">Batería Normal</option>
+              <option value="Soldador/Metales">Soldador/Metales</option>
+              <option value="Conductor">Conductor</option>
+              <option value="Sin Batería">Sin Batería</option>
+            </select>
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Vencimiento Preocupacional</label>
+            <input type="date" id="wf-venc-preoc" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Semana Asignada</label>
+            <input type="text" id="wf-semana" placeholder="Ej: S48-2026" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 uppercase" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">N° Contrato / Mandante</label>
+            <input type="text" id="wf-contrato" placeholder="Ej: 4540008992" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="font-bold text-slate-700">URL Validador Defontana QR</label>
+            <input type="url" id="wf-url-defontana" placeholder="https://validador.defontana.com/validate/..." class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-slate-200">
+          <label class="flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+            <input type="checkbox" id="wf-firmado" class="rounded text-blue-600" /> Firmado Defontana (2/2)
+          </label>
+          <label class="flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+            <input type="checkbox" id="wf-siga" class="rounded text-blue-600" /> Acreditado SIGA
+          </label>
+          <label class="flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+            <input type="checkbox" id="wf-faena" class="rounded text-blue-600" /> En Faena
+          </label>
+          <label class="flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+            <input type="checkbox" id="wf-carta" class="rounded text-blue-600" /> Validado Carta
+          </label>
+          <label class="flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+            <input type="checkbox" id="wf-fijo" class="rounded text-blue-600" /> Contratado Fijo (Exento)
+          </label>
+          <label class="flex items-center gap-2 font-semibold text-slate-700 cursor-pointer">
+            <input type="checkbox" id="wf-subido" class="rounded text-blue-600" /> Subido Plataforma
+          </label>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-200">
+          <button type="button" onclick="closeWorkerModal()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold">Cancelar</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold">Guardar Trabajador</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL 3: AGREGAR PASAJE MANUAL
+       ======================================================================= -->
+  <div id="pasajeModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+        <h3 class="font-bold text-sm">Registrar Pasaje de Bus</h3>
+        <button onclick="document.getElementById('pasajeModal').classList.add('hidden')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form onsubmit="savePasajeForm(event)" class="p-5 space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="font-bold text-slate-700">N° Boleto *</label>
+            <input type="text" id="pm-boleto" required placeholder="PLU-982341" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Empresa</label>
+            <input type="text" id="pm-empresa" value="PlussChile" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">RUT Pasajero *</label>
+            <input type="text" id="pm-rut" required placeholder="18.456.789-2" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Nombre Pasajero *</label>
+            <input type="text" id="pm-nombre" required placeholder="NOMBRE APELLIDO" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 uppercase" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Origen - Destino</label>
+            <input type="text" id="pm-tramo" value="Santiago - Antofagasta" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Fecha Viaje</label>
+            <input type="date" id="pm-fecha" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Servicio</label>
+            <select id="pm-servicio" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 bg-white">
+              <option value="Salón Cama">Salón Cama</option>
+              <option value="Semi Cama">Semi Cama</option>
+              <option value="Premium">Premium</option>
+            </select>
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Monto CLP *</label>
+            <input type="number" id="pm-monto" required value="54900" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Semana</label>
+            <input type="text" id="pm-semana" value="S48-2026" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Contrato</label>
+            <input type="text" id="pm-contrato" value="4540008992" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="document.getElementById('pasajeModal').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-slate-100 font-semibold">Cancelar</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-sky-600 text-white font-semibold">Guardar Pasaje</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       MODAL 4: AGREGAR FINIQUITO MANUAL
+       ======================================================================= -->
+  <div id="finiquitoModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="bg-slate-900 text-white px-5 py-3.5 flex items-center justify-between">
+        <h3 class="font-bold text-sm">Registrar Finiquito BEMAX</h3>
+        <button onclick="document.getElementById('finiquitoModal').classList.add('hidden')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <form onsubmit="saveFiniquitoForm(event)" class="p-5 space-y-3 text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="font-bold text-slate-700">RUT Trabajador *</label>
+            <input type="text" id="fm-rut" required placeholder="18.456.789-2" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Nombre Completo *</label>
+            <input type="text" id="fm-nombre" required placeholder="NOMBRE APELLIDO" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300 uppercase" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Período / Causal</label>
+            <input type="text" id="fm-periodo" placeholder="Oct-Nov 2026 / Art. 159 N°5" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Contrato</label>
+            <input type="text" id="fm-contrato" value="4540008992" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div>
+            <label class="font-bold text-slate-700">Total a Pagar CLP *</label>
+            <input type="number" id="fm-monto" required value="485000" class="w-full mt-1 px-3 py-2 rounded-xl border border-slate-300" />
+          </div>
+          <div class="flex items-end pb-2">
+            <label class="flex items-center gap-2 font-bold text-slate-700 cursor-pointer">
+              <input type="checkbox" id="fm-firmado" class="rounded text-emerald-600" /> Firmado en Defontana
+            </label>
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-3">
+          <button type="button" onclick="document.getElementById('finiquitoModal').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-slate-100 font-semibold">Cancelar</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-amber-600 text-white font-semibold">Guardar Finiquito</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       CONFIRMATION MODAL (REPLACING native confirm())
+       ======================================================================= -->
+  <div id="confirmModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-lg">
+          <i class="fa-solid fa-circle-question"></i>
+        </div>
+        <div>
+          <h3 id="confirmModalTitle" class="font-bold text-sm text-slate-900">Confirmar Acción</h3>
+          <p id="confirmModalMsg" class="text-xs text-slate-500 mt-0.5">¿Está seguro de continuar?</p>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2">
+        <button onclick="closeConfirmModal()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold">Cancelar</button>
+        <button id="confirmModalBtn" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =======================================================================
+       JAVASCRIPT APPLICATION CORE
+       ======================================================================= -->
+  <script>
+    // Configure PDF.js worker
+    if (window.pdfjsLib) {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    // Global State & SQLite Handle
+    let SQL = null;
+    let db = null;
+    let charts = {};
+    let html5QrScanner = null;
+    let cameraActive = false;
+
+    const STORAGE_KEY_DB = 'bemax_rrhh_sqlite_b64_v1';
+
+    // =========================================================================
+    // 1. INITIALIZATION & SQLITE SCHEMA MANAGEMENT
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', async () => {
+      updateClock();
+      setInterval(updateClock, 30000);
+      setupDropzone();
+
+      try {
+        SQL = await initSqlJs({
+          locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`
+        });
+
+        const savedB64 = localStorage.getItem(STORAGE_KEY_DB);
+        if (savedB64) {
+          const u8 = base64ToUint8Array(savedB64);
+          db = new SQL.Database(u8);
+          ensureTablesExist();
+          showToast('Base de datos SQLite restaurada desde almacenamiento local.', 'success');
+        } else {
+          db = new SQL.Database();
+          ensureTablesExist();
+          seedDemoData();
+          persistDbToLocalStorage();
+          showToast('Base de datos inicializada con registros reales de muestra BEMAX SPA.', 'info');
+        }
+      } catch (err) {
+        console.error('SQL.js init error:', err);
+        showToast('Error iniciando motor SQLite WebAssembly.', 'error');
+      }
+
+      refreshAllViews();
+    });
+
+    function ensureTablesExist() {
+      db.run(`
+        CREATE TABLE IF NOT EXISTS examenes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          rut TEXT UNIQUE,
+          nombre TEXT,
+          cargo TEXT,
+          clinica TEXT,
+          fecha_ayd TEXT,
+          resultado_ayd TEXT DEFAULT 'NEGATIVO',
+          detalle_positivo TEXT DEFAULT '',
+          fecha_prorroga TEXT DEFAULT '',
+          bateria_preoc TEXT DEFAULT 'Batería Normal',
+          vencimiento_preoc TEXT DEFAULT '',
+          semana TEXT DEFAULT '',
+          contrato TEXT DEFAULT '',
+          nro_contrato_defontana TEXT DEFAULT '',
+          firmado_defontana INTEGER DEFAULT 0,
+          url_defontana TEXT DEFAULT '',
+          acreditado_siga INTEGER DEFAULT 0,
+          en_faena INTEGER DEFAULT 0,
+          hora_faena TEXT DEFAULT '',
+          validado_carta INTEGER DEFAULT 0,
+          contratado_fijo INTEGER DEFAULT 0,
+          subido_plataforma INTEGER DEFAULT 1
+        );
+
+        CREATE TABLE IF NOT EXISTS proyeccion_semanal (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          rut TEXT,
+          nombre TEXT,
+          cargo TEXT,
+          semana TEXT,
+          contrato TEXT,
+          estado_cruce TEXT DEFAULT 'Pendiente',
+          UNIQUE(rut, semana)
+        );
+
+        CREATE TABLE IF NOT EXISTS ficha_postulantes_sheets (
+          rut TEXT PRIMARY KEY,
+          nombre TEXT,
+          cargo TEXT,
+          telefono TEXT,
+          correo TEXT,
+          banco TEXT,
+          tipo_cuenta TEXT,
+          nro_cuenta TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS pasajes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          nro_boleto TEXT,
+          empresa TEXT,
+          rut TEXT,
+          pasajero TEXT,
+          origen_destino TEXT,
+          fecha_viaje TEXT,
+          hora_viaje TEXT,
+          servicio TEXT,
+          monto INTEGER DEFAULT 0,
+          semana TEXT,
+          contrato TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS finiquitos (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          rut TEXT,
+          nombre TEXT,
+          periodo TEXT,
+          contrato TEXT,
+          total_pagar INTEGER DEFAULT 0,
+          firmado_defontana INTEGER DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS metas_semanales (
+          clave TEXT PRIMARY KEY,
+          meta_dotacion INTEGER DEFAULT 25
+        );
+      `);
+    }
+
+    function persistDbToLocalStorage() {
+      if (!db) return;
+      try {
+        const binaryArray = db.export();
+        const b64 = uint8ArrayToBase64(binaryArray);
+        localStorage.setItem(STORAGE_KEY_DB, b64);
+        document.getElementById('dbStatusBadge').innerHTML = `<i class="fa-solid fa-database text-[10px]"></i> SQLite Guardado (${new Date().toLocaleTimeString('es-CL', {hour:'2-digit', minute:'2-digit'})})`;
+      } catch (e) {
+        console.warn('LocalStorage quota warning:', e);
+      }
+    }
+
+    // Helper conversions for SQLite binary export/import
+    function uint8ArrayToBase64(u8) {
+      let binary = '';
+      const chunkSize = 0x8000;
+      for (let i = 0; i < u8.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, u8.subarray(i, i + chunkSize));
+      }
+      return btoa(binary);
+    }
+
+    function base64ToUint8Array(b64) {
+      const binary = atob(b64);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    }
+
+    // =========================================================================
+    // 2. DEMO DATA SEEDING (REALISTIC BEMAX SPA RECORDS)
+    // =========================================================================
+    function seedDemoData() {
+      const today = new Date();
+      const fmtDate = (offsetDays) => {
+        const d = new Date(today);
+        d.setDate(d.getDate() + offsetDays);
+        return d.toISOString().split('T')[0];
+      };
+
+      // Clear existing for clean demo load
+      db.run(`DELETE FROM examenes; DELETE FROM proyeccion_semanal; DELETE FROM ficha_postulantes_sheets; DELETE FROM pasajes; DELETE FROM finiquitos; DELETE FROM metas_semanales;`);
+
+      const workers = [
+        {
+          rut: '16.842.910-4', nombre: 'JAIME ARIEL GUTIÉRREZ', cargo: 'SOLDADOR CALIFICADO 6G',
+          clinica: 'CLINISERVICE', fecha_ayd: fmtDate(-12), res: 'NEGATIVO', det: '', prorroga: '',
+          bateria: 'Soldador/Metales', venc_preoc: fmtDate(280), semana: 'S48-2026', contrato: '4540008992',
+          nro_def: '4540008992', firmado: 1, url_def: 'https://validador.defontana.com/validate/BEMAX-8992-JAG',
+          siga: 1, faena: 1, hora_faena: '07:45', carta: 1, fijo: 0, subido: 1
+        },
+        {
+          rut: '19.345.128-9', nombre: 'VICENTE MARTIN SILVA RODRIGUEZ', cargo: 'MECÁNICO MANTENEDOR BASE',
+          clinica: 'PREOMED', fecha_ayd: fmtDate(-25), res: 'NEGATIVO', det: '', prorroga: '',
+          bateria: 'Batería Normal', venc_preoc: fmtDate(310), semana: 'S48-2026', contrato: '4540008992',
+          nro_def: '4540008992', firmado: 1, url_def: 'https://validador.defontana.com/validate/BEMAX-8992-VMS',
+          siga: 1, faena: 0, hora_faena: '', carta: 1, fijo: 0, subido: 1
+        },
+        {
+          rut: '15.209.441-K', nombre: 'HENRY ARMANDO ESCOBAR', cargo: 'OPERADOR CAMIÓN PLUMA',
+          clinica: 'CLINISERVICE', fecha_ayd: fmtDate(-32), res: 'NEGATIVO', det: '', prorroga: fmtDate(12),
+          bateria: 'Conductor', venc_preoc: fmtDate(195), semana: 'S48-2026', contrato: '4540008276',
+          nro_def: '4540008276', firmado: 1, url_def: 'https://validador.defontana.com/validate/BEMAX-8276-HAE',
+          siga: 1, faena: 1, hora_faena: '08:10', carta: 1, fijo: 0, subido: 1
+        },
+        {
+          rut: '14.987.332-1', nombre: 'MARIO ANTONIO MUÑOZ DURÁN', cargo: 'SUPERVISOR TERRENO',
+          clinica: 'CLINISERVICE', fecha_ayd: fmtDate(-45), res: 'NEGATIVO', det: '', prorroga: '',
+          bateria: 'Batería Normal', venc_preoc: fmtDate(340), semana: 'S47-2026', contrato: '4540008276',
+          nro_def: '4540008276', firmado: 1, url_def: 'https://validador.defontana.com/validate/BEMAX-8276-MAM',
+          siga: 1, faena: 1, hora_faena: '07:30', carta: 1, fijo: 1, subido: 1
+        },
+        {
+          rut: '18.712.554-7', nombre: 'CARLOS EDUARDO TAPIA ROJAS', cargo: 'SOLDADOR ESTRUCTURAL',
+          clinica: 'PREOMED', fecha_ayd: fmtDate(-5), res: 'POSITIVO', det: 'THC / Marihuana (50 ng/mL)', prorroga: '',
+          bateria: 'Soldador/Metales', venc_preoc: fmtDate(290), semana: 'S48-2026', contrato: '4540008992',
+          nro_def: '', firmado: 0, url_def: '',
+          siga: 0, faena: 0, hora_faena: '', carta: 0, fijo: 0, subido: 0
+        },
+        {
+          rut: '17.654.890-3', nombre: 'RODRIGO ALEJANDRO CASTRO PÉREZ', cargo: 'MECÁNICO HIDRÁULICO',
+          clinica: 'CLINISERVICE', fecha_ayd: fmtDate(-27), res: 'NEGATIVO', det: '', prorroga: '',
+          bateria: 'Batería Normal', venc_preoc: fmtDate(210), semana: 'S48-2026', contrato: '4540008992',
+          nro_def: '', firmado: 0, url_def: '',
+          siga: 0, faena: 0, hora_faena: '', carta: 0, fijo: 0, subido: 1
+        },
+        {
+          rut: '20.112.409-8', nombre: 'MATÍAS IGNACIO VALENZUELA LÓPEZ', cargo: 'AYUDANTE MECÁNICO',
+          clinica: 'PREOMED', fecha_ayd: fmtDate(-8), res: 'NEGATIVO', det: '', prorroga: '',
+          bateria: 'Batería Normal', venc_preoc: fmtDate(320), semana: '', contrato: '4540008992',
+          nro_def: '', firmado: 0, url_def: '',
+          siga: 0, faena: 0, hora_faena: '', carta: 0, fijo: 0, subido: 0
+        }
+      ];
+
+      const stmt = db.prepare(`INSERT INTO examenes (
+        rut, nombre, cargo, clinica, fecha_ayd, resultado_ayd, detalle_positivo, fecha_prorroga,
+        bateria_preoc, vencimiento_preoc, semana, contrato, nro_contrato_defontana,
+        firmado_defontana, url_defontana, acreditado_siga, en_faena, hora_faena,
+        validado_carta, contratado_fijo, subido_plataforma
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
+
+      workers.forEach(w => {
+        stmt.run([
+          w.rut, w.nombre, w.cargo, w.clinica, w.fecha_ayd, w.res, w.det, w.prorroga,
+          w.bateria, w.venc_preoc, w.semana, w.contrato, w.nro_def,
+          w.firmado, w.url_def, w.siga, w.faena, w.hora_faena,
+          w.carta, w.fijo, w.subido
+        ]);
+      });
+      stmt.free();
+
+      // Ficha postulantes (Sheets)
+      const fichas = [
+        ['16.842.910-4', 'JAIME ARIEL GUTIÉRREZ', 'SOLDADOR CALIFICADO 6G', '+56987654321', 'jaime.gutierrez@mail.cl', 'BancoEstado', 'CuentaRUT', '16842910'],
+        ['19.345.128-9', 'VICENTE MARTIN SILVA RODRIGUEZ', 'MECÁNICO MANTENEDOR BASE', '+56976543210', 'vicente.silva@mail.cl', 'Banco de Chile', 'Cuenta Corriente', '00-123-45678-01'],
+        ['15.209.441-K', 'HENRY ARMANDO ESCOBAR', 'OPERADOR CAMIÓN PLUMA', '+56965432109', 'henry.escobar@mail.cl', 'Banco Santander', 'Cuenta Vista', '78901234'],
+        ['14.987.332-1', 'MARIO ANTONIO MUÑOZ DURÁN', 'SUPERVISOR TERRENO', '+56954321098', 'mario.munoz@mail.cl', 'BCI', 'Cuenta Corriente', '98765432'],
+        ['20.112.409-8', 'MATÍAS IGNACIO VALENZUELA LÓPEZ', 'AYUDANTE MECÁNICO', '+56943210987', 'matias.val@mail.cl', 'BancoEstado', 'CuentaRUT', '20112409'],
+        ['18.999.111-2', 'SEBASTIÁN ANDRÉS MORALES', 'RIGGER ALTA TONELADA', '+56932109876', 'sebastian.morales@mail.cl', 'Scotiabank', 'Cuenta Vista', '55443322']
+      ];
+      const fStmt = db.prepare(`INSERT INTO ficha_postulantes_sheets VALUES (?,?,?,?,?,?,?,?)`);
+      fichas.forEach(f => fStmt.run(f));
+      fStmt.free();
+
+      // Proyección Semanal
+      const proy = [
+        ['16.842.910-4', 'JAIME ARIEL GUTIÉRREZ', 'SOLDADOR CALIFICADO 6G', 'S48-2026', '4540008992', 'Contratado'],
+        ['19.345.128-9', 'VICENTE MARTIN SILVA RODRIGUEZ', 'MECÁNICO MANTENEDOR BASE', 'S48-2026', '4540008992', 'Contratado'],
+        ['18.999.111-2', 'SEBASTIÁN ANDRÉS MORALES', 'RIGGER ALTA TONELADA', 'S48-2026', '4540008992', 'Sin Examen']
+      ];
+      const pStmt = db.prepare(`INSERT INTO proyeccion_semanal (rut, nombre, cargo, semana, contrato, estado_cruce) VALUES (?,?,?,?,?,?)`);
+      proy.forEach(p => pStmt.run(p));
+      pStmt.free();
+
+      // Pasajes
+      const pasajes = [
+        ['PLU-884120', 'PlussChile', '16.842.910-4', 'JAIME ARIEL GUTIÉRREZ', 'Santiago - Antofagasta', fmtDate(-3), '21:30', 'Salón Cama', 62500, 'S48-2026', '4540008992'],
+        ['KUP-449012', 'Kupos.cl / Turbus', '19.345.128-9', 'VICENTE MARTIN SILVA RODRIGUEZ', 'La Serena - Antofagasta', fmtDate(-2), '22:15', 'Semi Cama', 38900, 'S48-2026', '4540008992'],
+        ['PLU-884599', 'PlussChile', '15.209.441-K', 'HENRY ARMANDO ESCOBAR', 'Concepción - Calama', fmtDate(-8), '18:00', 'Salón Cama', 79000, 'S47-2026', '4540008276']
+      ];
+      const pasStmt = db.prepare(`INSERT INTO pasajes (nro_boleto, empresa, rut, pasajero, origen_destino, fecha_viaje, hora_viaje, servicio, monto, semana, contrato) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
+      pasajes.forEach(p => pasStmt.run(p));
+      pasStmt.free();
+
+      // Finiquitos
+      const finiquitos = [
+        ['14.987.332-1', 'MARIO ANTONIO MUÑOZ DURÁN', 'Octubre 2026 / Art. 159 N°5', '4540008276', 645000, 1],
+        ['17.654.890-3', 'RODRIGO ALEJANDRO CASTRO PÉREZ', 'Noviembre 2026 / Mutuo Acuerdo', '4540008992', 412500, 0]
+      ];
+      const finStmt = db.prepare(`INSERT INTO finiquitos (rut, nombre, periodo, contrato, total_pagar, firmado_defontana) VALUES (?,?,?,?,?,?)`);
+      finiquitos.forEach(f => finStmt.run(f));
+      finStmt.free();
+
+      // Meta semanal
+      db.run(`INSERT OR REPLACE INTO metas_semanales VALUES ('GLOBAL', 15)`);
+    }
+
+    function confirmLoadDemoData() {
+      openConfirmModal(
+        'Restaurar Datos de Muestra BEMAX SPA',
+        'Esto reemplazará los datos actuales en memoria por los registros reales de ejemplo (Jaime Gutiérrez, Vicente Silva, Henry Escobar, Mario Muñoz, etc.). ¿Desea continuar?',
+        () => {
+          seedDemoData();
+          persistDbToLocalStorage();
+          refreshAllViews();
+          showToast('Datos de muestra BEMAX SPA cargados correctamente.', 'success');
+        }
+      );
+    }
+
+    // =========================================================================
+    // 3. SQLITE FILE IMPORT & EXPORT + EXCEL 4-SHEET EXPORT
+    // =========================================================================
+    function importSqliteFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function() {
+        try {
+          const u8 = new Uint8Array(reader.result);
+          db = new SQL.Database(u8);
+          ensureTablesExist();
+          persistDbToLocalStorage();
+          refreshAllViews();
+          showToast(`Archivo SQLite "${file.name}" cargado exitosamente.`, 'success');
+        } catch (err) {
+          console.error(err);
+          showToast('El archivo seleccionado no es una base de datos SQLite válida.', 'error');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      event.target.value = '';
+    }
+
+    function exportSqliteFile() {
+      if (!db) return;
+      const binaryArray = db.export();
+      const blob = new Blob([binaryArray], { type: 'application/x-sqlite3' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `control_examenes_ayd_${new Date().toISOString().slice(0,10)}.db`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Base de datos SQLite (.db) exportada.', 'success');
+    }
+
+    function exportExcelConsolidado() {
+      if (!db) return;
+      const wb = XLSX.utils.book_new();
+
+      // Sheet 1: Base Consolidada RRHH
+      const workers = queryAll(`SELECT * FROM examenes`).map(w => {
+        const evalAyd = evaluateAydStatus(w);
+        return {
+          'RUT': w.rut,
+          'Nombre Completo': w.nombre,
+          'Cargo': w.cargo,
+          'Clínica': w.clinica,
+          'Fecha Examen A&D': w.fecha_ayd,
+          'Resultado A&D': w.resultado_ayd,
+          'Estado Vigencia A&D': evalAyd.label,
+          'Días Restantes': evalAyd.daysLeft !== null ? evalAyd.daysLeft : 'N/A',
+          'Fecha Prórroga': w.fecha_prorroga,
+          'Batería Preocupacional': w.bateria_preoc,
+          'Venc. Preocupacional': w.vencimiento_preoc,
+          'Semana': w.semana,
+          'Contrato': w.contrato,
+          'Firmado Defontana (2/2)': w.firmado_defontana ? 'SÍ' : 'NO',
+          'Acreditado SIGA': w.acreditado_siga ? 'SÍ' : 'NO',
+          'En Faena': w.en_faena ? 'SÍ' : 'NO',
+          'Validado Carta': w.validado_carta ? 'SÍ' : 'NO',
+          'Contratado Fijo': w.contratado_fijo ? 'SÍ' : 'NO'
+        };
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(workers), 'Base Consolidada RRHH');
+
+      // Sheet 2: Proyección Semanal
+      const proy = queryAll(`SELECT rut AS RUT, nombre AS Nombre, cargo AS Cargo, semana AS Semana, contrato AS Contrato, estado_cruce AS Estado FROM proyeccion_semanal`);
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(proy.length ? proy : [{ Info: 'Sin registros' }]), 'Proyección Semanal');
+
+      // Sheet 3: Control Pasajes
+      const pas = queryAll(`SELECT nro_boleto AS Boleto, empresa AS Empresa, rut AS RUT, pasajero AS Pasajero, origen_destino AS Tramo, fecha_viaje AS Fecha, hora_viaje AS Hora, servicio AS Servicio, monto AS Monto_CLP, semana AS Semana, contrato AS Contrato FROM pasajes`);
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pas.length ? pas : [{ Info: 'Sin registros' }]), 'Control Pasajes');
+
+      // Sheet 4: Control Finiquitos
+      const fin = queryAll(`
+        SELECT f.rut AS RUT, f.nombre AS Nombre, f.periodo AS Periodo, f.contrato AS Contrato,
+               f.total_pagar AS Total_CLP, CASE WHEN f.firmado_defontana=1 THEN 'FIRMADO' ELSE 'PENDIENTE' END AS Defontana,
+               s.banco AS Banco, s.tipo_cuenta AS Tipo_Cuenta, s.nro_cuenta AS Nro_Cuenta
+        FROM finiquitos f
+        LEFT JOIN ficha_postulantes_sheets s ON REPLACE(REPLACE(UPPER(f.rut),'.',''),'-','') = REPLACE(REPLACE(UPPER(s.rut),'.',''),'-','')
+      `);
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fin.length ? fin : [{ Info: 'Sin registros' }]), 'Control Finiquitos');
+
+      XLSX.writeFile(wb, `Reporte_Consolidado_RRHH_BEMAX_${new Date().toISOString().slice(0,10)}.xlsx`);
+      showToast('Excel Consolidado (4 hojas) generado correctamente.', 'success');
+    }
+
+    // =========================================================================
+    // 4. BUSINESS LOGIC: 30-DAY A&D EXPIRATION, PRORROGA, OPERATIONAL WINDOW
+    // =========================================================================
+    function normalizeRut(rut) {
+      if (!rut) return '';
+      return rut.toString().toUpperCase().replace(/[^0-9K]/g, '');
+    }
+
+    function formatRutPretty(rut) {
+      const clean = normalizeRut(rut);
+      if (clean.length < 2) return rut;
+      const body = clean.slice(0, -1);
+      const dv = clean.slice(-1);
+      return body.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + '-' + dv;
+    }
+
+    function daysDiffFromToday(dateStr) {
+      if (!dateStr) return null;
+      const target = new Date(dateStr + 'T00:00:00');
+      if (isNaN(target.getTime())) return null;
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      return Math.round((target - now) / (1000 * 60 * 60 * 24));
+    }
+
+    function evaluateAydStatus(w) {
+      if (w.resultado_ayd === 'POSITIVO') {
+        return { code: 'POSITIVO', label: 'POSITIVO A&D', daysLeft: -999, valid: false };
+      }
+      if (w.contratado_fijo == 1) {
+        return { code: 'FIJO', label: 'EXENTO (FIJO)', daysLeft: 999, valid: true };
+      }
+      // Check Prorroga first if valid
+      if (w.fecha_prorroga) {
+        const pDays = daysDiffFromToday(w.fecha_prorroga);
+        if (pDays !== null && pDays >= 0) {
+          return { code: 'PRORROGA', label: `PRÓRROGA (${pDays}d)`, daysLeft: pDays, valid: true };
+        }
+      }
+      if (!w.fecha_ayd) {
+        return { code: 'SIN_EXAMEN', label: 'SIN EXAMEN A&D', daysLeft: null, valid: false };
+      }
+      const examDate = new Date(w.fecha_ayd + 'T00:00:00');
+      if (isNaN(examDate.getTime())) {
+        return { code: 'SIN_EXAMEN', label: 'FECHA INVÁLIDA', daysLeft: null, valid: false };
+      }
+      const expiryDate = new Date(examDate);
+      expiryDate.setDate(expiryDate.getDate() + 30);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const daysLeft = Math.round((expiryDate - today) / (1000 * 60 * 60 * 24));
+
+      if (daysLeft < 0) {
+        return { code: 'VENCIDO', label: `VENCIDO (${Math.abs(daysLeft)}d)`, daysLeft, valid: false };
+      } else if (daysLeft <= 7) {
+        return { code: 'POR_VENCER', label: `POR VENCER (${daysLeft}d)`, daysLeft, valid: true };
+      } else {
+        return { code: 'VIGENTE', label: `VIGENTE (${daysLeft}d)`, daysLeft, valid: true };
+      }
+    }
+
+    function evaluatePreocStatus(w) {
+      if (!w.vencimiento_preoc || w.bateria_preoc === 'Sin Batería') {
+        return { valid: false, label: 'Sin Batería' };
+      }
+      const days = daysDiffFromToday(w.vencimiento_preoc);
+      if (days === null || days < 0) {
+        return { valid: false, label: `Vencida (${w.vencimiento_preoc})` };
+      }
+      return { valid: true, label: `${w.bateria_preoc} (${days}d)` };
+    }
+
+    function queryAll(sql, params = []) {
+      const stmt = db.prepare(sql);
+      if (params.length) stmt.bind(params);
+      const rows = [];
+      while (stmt.step()) {
+        rows.push(stmt.getAsObject());
+      }
+      stmt.free();
+      return rows;
+    }
+
+    // =========================================================================
+    // 5. TAB 1: BASE GENERAL RENDERING & INTERACTIVE TOGGLES
+    // =========================================================================
+    function refreshAllViews() {
+      populateFilterDropdowns();
+      renderGeneralTable();
+      renderProyeccionTable();
+      renderSemanalView();
+      renderPasajesView();
+      renderFiniquitosView();
+      if (!document.getElementById('view-dashboard').classList.contains('hidden')) {
+        renderDashboardCharts();
+      }
+    }
+
+    function populateFilterDropdowns() {
+      const workers = queryAll(`SELECT DISTINCT contrato, semana FROM examenes`);
+      const contracts = [...new Set(workers.map(w => w.contrato).filter(Boolean))];
+      const weeks = [...new Set(workers.map(w => w.semana).filter(Boolean))];
+
+      // General Contract Filter
+      const gCont = document.getElementById('generalContractFilter');
+      const curGCont = gCont.value;
+      gCont.innerHTML = `<option value="ALL">Contrato: Todos</option>` + contracts.map(c => `<option value="${c}">${c}</option>`).join('');
+      if (contracts.includes(curGCont)) gCont.value = curGCont;
+
+      // Semanal Selects
+      const sSem = document.getElementById('semanalSelectSemana');
+      const curSSem = sSem.value;
+      sSem.innerHTML = `<option value="ALL">Todas las Semanas</option>` + weeks.map(s => `<option value="${s}">${s}</option>`).join('');
+      if (weeks.includes(curSSem)) sSem.value = curSSem;
+
+      const sCont = document.getElementById('semanalSelectContrato');
+      const curSCont = sCont.value;
+      sCont.innerHTML = `<option value="ALL">Todos los Contratos</option>` + contracts.map(c => `<option value="${c}">${c}</option>`).join('');
+      if (contracts.includes(curSCont)) sCont.value = curSCont;
+
+      // Proyeccion Semana Filter
+      const pWeeks = [...new Set([...weeks, ...queryAll(`SELECT DISTINCT semana FROM proyeccion_semanal`).map(r => r.semana).filter(Boolean)])];
+      const pSel = document.getElementById('projFilterSemana');
+      const curPSel = pSel.value;
+      pSel.innerHTML = `<option value="ALL">Todas las Semanas</option>` + pWeeks.map(s => `<option value="${s}">${s}</option>`).join('');
+      if (pWeeks.includes(curPSel)) pSel.value = curPSel;
+    }
+
+    function setQuickFilter(filterCode) {
+      document.getElementById('generalQuickFilter').value = filterCode;
+      renderGeneralTable();
+    }
+
+    function resetGeneralFilters() {
+      document.getElementById('generalSearchInput').value = '';
+      document.getElementById('generalQuickFilter').value = 'ALL';
+      document.getElementById('generalContractFilter').value = 'ALL';
+      renderGeneralTable();
+    }
+
+    function renderGeneralTable() {
+      const allWorkers = queryAll(`SELECT * FROM examenes ORDER BY id DESC`);
+      const search = document.getElementById('generalSearchInput').value.toLowerCase().trim();
+      const qFilter = document.getElementById('generalQuickFilter').value;
+      const cFilter = document.getElementById('generalContractFilter').value;
+
+      // Compute KPIs
+      let kpiPos = 0, kpiVencer = 0, kpiProrroga = 0, kpiPreoc = 0, kpiFirmados = 0, kpiSiga = 0, kpiFaena = 0, kpiVencidos = 0;
+
+      allWorkers.forEach(w => {
+        const ayd = evaluateAydStatus(w);
+        const preoc = evaluatePreocStatus(w);
+        if (ayd.code === 'POSITIVO') kpiPos++;
+        if (ayd.code === 'POR_VENCER') kpiVencer++;
+        if (ayd.code === 'VENCIDO') kpiVencidos++;
+        if (ayd.code === 'PRORROGA') kpiProrroga++;
+        if (preoc.valid) kpiPreoc++;
+        if (w.firmado_defontana == 1) kpiFirmados++;
+        if (w.acreditado_siga == 1) kpiSiga++;
+        if (w.en_faena == 1) kpiFaena++;
+      });
+
+      document.getElementById('kpi-total').textContent = allWorkers.length;
+      document.getElementById('kpi-positivos').textContent = kpiPos;
+      document.getElementById('kpi-vencer').textContent = kpiVencer;
+      document.getElementById('kpi-prorroga').textContent = kpiProrroga;
+      document.getElementById('kpi-preoc').textContent = kpiPreoc;
+      document.getElementById('kpi-firmados').textContent = kpiFirmados;
+      document.getElementById('kpi-siga').textContent = kpiSiga;
+      document.getElementById('kpi-faena').textContent = kpiFaena;
+
+      // Operational Window Banner (Mon-Thu active window check)
+      const dayOfWeek = new Date().getDay(); // 0=Sun, 1=Mon ... 4=Thu
+      const isWindowOpen = dayOfWeek >= 1 && dayOfWeek <= 4;
+      document.getElementById('windowStatusTitle').textContent = isWindowOpen
+        ? '🟢 VENTANA OPERATIVA ACTIVA (LUNES A JUEVES — GESTIÓN ACREDITACIÓN Y SUBIDA)'
+        : '🟡 VENTANA DE CIERRE SEMANAL (VIERNES A DOMINGO — CONTROL TURNOS Y PASAJES)';
+
+      document.getElementById('alertBannerSummary').innerHTML = `
+        <strong>${kpiPos}</strong> Positivos A&D •
+        <strong class="text-amber-300">${kpiVencer}</strong> por vencer (≤7d) •
+        <strong class="text-red-300">${kpiVencidos}</strong> vencidos •
+        <strong class="text-indigo-300">${kpiProrroga}</strong> con prórroga •
+        <strong class="text-emerald-300">${kpiFaena}</strong> en faena.
+      `;
+
+      // Filter rows
+      const filtered = allWorkers.filter(w => {
+        const ayd = evaluateAydStatus(w);
+        const preoc = evaluatePreocStatus(w);
+
+        if (cFilter !== 'ALL' && w.contrato !== cFilter) return false;
+
+        if (qFilter === 'POSITIVO' && ayd.code !== 'POSITIVO') return false;
+        if (qFilter === 'PRIORIDAD_AYD' && !['POR_VENCER', 'VENCIDO'].includes(ayd.code)) return false;
+        if (qFilter === 'PRORROGA' && ayd.code !== 'PRORROGA') return false;
+        if (qFilter === 'EN_FAENA' && w.en_faena != 1) return false;
+        if (qFilter === 'PENDIENTE_SUBIR' && w.subido_plataforma == 1) return false;
+        if (qFilter === 'PENDIENTE_CARTA' && w.validado_carta == 1) return false;
+        if (qFilter === 'VALIDADO_CARTA' && w.validado_carta != 1) return false;
+        if (qFilter === 'FIRMADOS' && w.firmado_defontana != 1) return false;
+        if (qFilter === 'CON_SEMANA' && !w.semana) return false;
+        if (qFilter === 'SIN_SEMANA' && w.semana) return false;
+        if (qFilter === 'CONTRATADO_FIJO' && w.contratado_fijo != 1) return false;
+        if (qFilter === 'SIGA' && w.acreditado_siga != 1) return false;
+        if (qFilter === 'PREOC_OK' && !preoc.valid) return false;
+
+        if (search) {
+          const blob = `${w.rut} ${w.nombre} ${w.cargo} ${w.clinica} ${w.semana} ${w.contrato} ${ayd.label}`.toLowerCase();
+          if (!blob.includes(search)) return false;
+        }
+        return true;
+      });
+
+      const tbody = document.getElementById('generalTableBody');
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-slate-400">No se encontraron trabajadores con los filtros aplicados.</td></tr>`;
+      } else {
+        tbody.innerHTML = filtered.map(w => {
+          const ayd = evaluateAydStatus(w);
+          const preoc = evaluatePreocStatus(w);
+
+          let aydBadgeClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+          if (ayd.code === 'POSITIVO') aydBadgeClass = 'bg-red-600 text-white border-red-700 font-extrabold pulse-danger';
+          else if (ayd.code === 'VENCIDO' || ayd.code === 'SIN_EXAMEN') aydBadgeClass = 'bg-red-100 text-red-800 border-red-200';
+          else if (ayd.code === 'POR_VENCER') aydBadgeClass = 'bg-amber-100 text-amber-800 border-amber-300';
+          else if (ayd.code === 'PRORROGA') aydBadgeClass = 'bg-indigo-100 text-indigo-800 border-indigo-200';
+          else if (ayd.code === 'FIJO') aydBadgeClass = 'bg-slate-800 text-white border-slate-900';
+
+          return `
+            <tr class="hover:bg-slate-50/90 transition ${ayd.code === 'POSITIVO' ? 'bg-red-50/40' : ''}">
+              <td class="py-3 px-3">
+                <div class="font-bold text-slate-900">${w.nombre}</div>
+                <div class="text-[11px] font-mono text-slate-500">${w.rut}</div>
+              </td>
+              <td class="py-3 px-3">
+                <div class="font-semibold text-slate-700">${w.cargo || 'SIN CARGO'}</div>
+                <div class="text-[11px] text-slate-400">${w.clinica || '-'}</div>
+              </td>
+              <td class="py-3 px-3">
+                <span class="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-800 font-bold text-[11px]">${w.semana || 'SIN SEM'}</span>
+                <div class="text-[11px] text-slate-500 mt-0.5 font-mono">${w.contrato || '-'}</div>
+              </td>
+              <td class="py-3 px-3">
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-bold ${aydBadgeClass}">
+                  ${ayd.code === 'POSITIVO' ? '<i class="fa-solid fa-skull-crossbones"></i>' : ''}
+                  ${ayd.label}
+                </span>
+                <div class="text-[10px] text-slate-400 mt-0.5">
+                  ${w.fecha_ayd ? 'Toma: ' + w.fecha_ayd : ''} ${w.detalle_positivo ? '• ' + w.detalle_positivo : ''}
+                </div>
+              </td>
+              <td class="py-3 px-3">
+                <span class="inline-block px-2 py-0.5 rounded-lg text-[11px] font-semibold ${preoc.valid ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-slate-100 text-slate-500'}">
+                  ${preoc.label}
+                </span>
+              </td>
+              <td class="py-3 px-3 text-center">
+                <div class="inline-flex items-center gap-1">
+                  <button onclick="toggleWorkerFlag(${w.id}, 'firmado_defontana')" class="px-2 py-1 rounded-lg text-[11px] font-bold transition ${w.firmado_defontana ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}" title="Alternar Firma Defontana 2/2">
+                    ${w.firmado_defontana ? '2/2 OK' : 'Pend.'}
+                  </button>
+                  ${w.url_defontana ? `<a href="${w.url_defontana}" target="_blank" class="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100" title="Abrir Validador QR Defontana"><i class="fa-solid fa-qrcode"></i></a>` : ''}
+                </div>
+              </td>
+              <td class="py-3 px-3 text-center">
+                <div class="inline-flex items-center gap-1">
+                  <button onclick="toggleWorkerFlag(${w.id}, 'acreditado_siga')" class="px-2 py-1 rounded-lg text-[11px] font-bold transition ${w.acreditado_siga ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}" title="Alternar Acreditación SIGA">
+                    SIGA
+                  </button>
+                  <button onclick="toggleWorkerFlag(${w.id}, 'validado_carta')" class="px-2 py-1 rounded-lg text-[11px] font-bold transition ${w.validado_carta ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}" title="Alternar Carta Conductora">
+                    Carta
+                  </button>
+                </div>
+              </td>
+              <td class="py-3 px-3 text-center">
+                <div class="inline-flex items-center gap-1">
+                  <button onclick="toggleWorkerFaena(${w.id})" class="px-2 py-1 rounded-lg text-[11px] font-bold transition ${w.en_faena ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}" title="Marcar/Desmarcar En Faena">
+                    ${w.en_faena ? `Faena ${w.hora_faena || ''}` : 'Fuera'}
+                  </button>
+                  <button onclick="toggleWorkerFlag(${w.id}, 'contratado_fijo')" class="px-2 py-1 rounded-lg text-[11px] font-bold transition ${w.contratado_fijo ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}" title="Contratado Fijo (Exento 30 días)">
+                    Fijo
+                  </button>
+                </div>
+              </td>
+              <td class="py-3 px-3 text-right whitespace-nowrap">
+                <button onclick="openWorkerModal(${w.id})" class="p-1.5 rounded-lg text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition" title="Editar ficha">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                </button>
+                <button onclick="deleteWorker(${w.id}, '${w.nombre}')" class="p-1.5 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600 transition" title="Eliminar registro">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      document.getElementById('generalTableCount').textContent = `Mostrando ${filtered.length} de ${allWorkers.length} trabajadores`;
+    }
+
+    function toggleWorkerFlag(id, column) {
+      db.run(`UPDATE examenes SET ${column} = CASE WHEN ${column} = 1 THEN 0 ELSE 1 END WHERE id = ?`, [id]);
+      persistDbToLocalStorage();
+      refreshAllViews();
+    }
+
+    function toggleWorkerFaena(id) {
+      const nowTime = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+      db.run(`UPDATE examenes SET en_faena = CASE WHEN en_faena = 1 THEN 0 ELSE 1 END, hora_faena = CASE WHEN en_faena = 1 THEN '' ELSE ? END WHERE id = ?`, [nowTime, id]);
+      persistDbToLocalStorage();
+      refreshAllViews();
+      showToast('Estado "En Faena" actualizado.', 'info');
+    }
+
+    function openWorkerModal(id = null) {
+      const form = document.getElementById('workerForm');
+      form.reset();
+      document.getElementById('wf-id').value = '';
+      document.getElementById('workerModalTitle').textContent = id ? 'Editar Trabajador' : 'Registrar Nuevo Trabajador';
+
+      if (id) {
+        const rows = queryAll(`SELECT * FROM examenes WHERE id = ?`, [id]);
+        if (rows.length) {
+          const w = rows[0];
+          document.getElementById('wf-id').value = w.id;
+          document.getElementById('wf-rut').value = w.rut;
+          document.getElementById('wf-nombre').value = w.nombre;
+          document.getElementById('wf-cargo').value = w.cargo;
+          document.getElementById('wf-clinica').value = w.clinica || 'CLINISERVICE';
+          document.getElementById('wf-fecha-ayd').value = w.fecha_ayd || '';
+          document.getElementById('wf-res-ayd').value = w.resultado_ayd || 'NEGATIVO';
+          document.getElementById('wf-detalle-pos').value = w.detalle_positivo || '';
+          document.getElementById('wf-prorroga').value = w.fecha_prorroga || '';
+          document.getElementById('wf-bateria').value = w.bateria_preoc || 'Batería Normal';
+          document.getElementById('wf-venc-preoc').value = w.vencimiento_preoc || '';
+          document.getElementById('wf-semana').value = w.semana || '';
+          document.getElementById('wf-contrato').value = w.contrato || '';
+          document.getElementById('wf-url-defontana').value = w.url_defontana || '';
+          document.getElementById('wf-firmado').checked = w.firmado_defontana == 1;
+          document.getElementById('wf-siga').checked = w.acreditado_siga == 1;
+          document.getElementById('wf-faena').checked = w.en_faena == 1;
+          document.getElementById('wf-carta').checked = w.validado_carta == 1;
+          document.getElementById('wf-fijo').checked = w.contratado_fijo == 1;
+          document.getElementById('wf-subido').checked = w.subido_plataforma == 1;
+        }
+      }
+      document.getElementById('workerModal').classList.remove('hidden');
+      document.getElementById('workerModal').classList.add('flex');
+    }
+
+    function closeWorkerModal() {
+      document.getElementById('workerModal').classList.add('hidden');
+      document.getElementById('workerModal').classList.remove('flex');
+    }
+
+    function saveWorkerForm(e) {
+      e.preventDefault();
+      const id = document.getElementById('wf-id').value;
+      const rut = formatRutPretty(document.getElementById('wf-rut').value.trim());
+      const nombre = document.getElementById('wf-nombre').value.trim().toUpperCase();
+      const cargo = document.getElementById('wf-cargo').value.trim().toUpperCase();
+      const clinica = document.getElementById('wf-clinica').value;
+      const fecha_ayd = document.getElementById('wf-fecha-ayd').value;
+      const res_ayd = document.getElementById('wf-res-ayd').value;
+      const det_pos = document.getElementById('wf-detalle-pos').value.trim();
+      const prorroga = document.getElementById('wf-prorroga').value;
+      const bateria = document.getElementById('wf-bateria').value;
+      const venc_preoc = document.getElementById('wf-venc-preoc').value;
+      const semana = document.getElementById('wf-semana').value.trim().toUpperCase();
+      const contrato = document.getElementById('wf-contrato').value.trim();
+      const url_def = document.getElementById('wf-url-defontana').value.trim();
+      const firmado = document.getElementById('wf-firmado').checked ? 1 : 0;
+      const siga = document.getElementById('wf-siga').checked ? 1 : 0;
+      const faena = document.getElementById('wf-faena').checked ? 1 : 0;
+      const carta = document.getElementById('wf-carta').checked ? 1 : 0;
+      const fijo = document.getElementById('wf-fijo').checked ? 1 : 0;
+      const subido = document.getElementById('wf-subido').checked ? 1 : 0;
+
+      if (id) {
+        db.run(`UPDATE examenes SET
+          rut=?, nombre=?, cargo=?, clinica=?, fecha_ayd=?, resultado_ayd=?, detalle_positivo=?,
+          fecha_prorroga=?, bateria_preoc=?, vencimiento_preoc=?, semana=?, contrato=?,
+          url_defontana=?, firmado_defontana=?, acreditado_siga=?, en_faena=?,
+          validado_carta=?, contratado_fijo=?, subido_plataforma=?
+          WHERE id=?`,
+          [rut, nombre, cargo, clinica, fecha_ayd, res_ayd, det_pos, prorroga, bateria, venc_preoc,
+           semana, contrato, url_def, firmado, siga, faena, carta, fijo, subido, id]
+        );
+      } else {
+        db.run(`INSERT OR REPLACE INTO examenes (
+          rut, nombre, cargo, clinica, fecha_ayd, resultado_ayd, detalle_positivo,
+          fecha_prorroga, bateria_preoc, vencimiento_preoc, semana, contrato,
+          url_defontana, firmado_defontana, acreditado_siga, en_faena,
+          validado_carta, contratado_fijo, subido_plataforma
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+          [rut, nombre, cargo, clinica, fecha_ayd, res_ayd, det_pos, prorroga, bateria, venc_preoc,
+           semana, contrato, url_def, firmado, siga, faena, carta, fijo, subido]
+        );
+      }
+
+      persistDbToLocalStorage();
+      closeWorkerModal();
+      refreshAllViews();
+      showToast(`Trabajador ${nombre} guardado correctamente.`, 'success');
+    }
+
+    function deleteWorker(id, nombre) {
+      openConfirmModal('Eliminar Trabajador', `¿Eliminar a ${nombre} de la base de datos?`, () => {
+        db.run(`DELETE FROM examenes WHERE id = ?`, [id]);
+        persistDbToLocalStorage();
+        refreshAllViews();
+        showToast('Registro eliminado.', 'info');
+      });
+    }
+
+    // =========================================================================
+    // 6. SMART PDF PARSER (PDF.js)
+    // =========================================================================
+    function openPdfModal() {
+      document.getElementById('pdfModal').classList.remove('hidden');
+      document.getElementById('pdfModal').classList.add('flex');
+    }
+
+    function closePdfModal() {
+      document.getElementById('pdfModal').classList.add('hidden');
+      document.getElementById('pdfModal').classList.remove('flex');
+    }
+
+    function setupDropzone() {
+      const dz = document.getElementById('pdfDropzone');
+      dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('bg-blue-100'); });
+      dz.addEventListener('dragleave', () => dz.classList.remove('bg-blue-100'));
+      dz.addEventListener('drop', e => {
+        e.preventDefault();
+        dz.classList.remove('bg-blue-100');
+        if (e.dataTransfer.files.length) handlePdfFiles(e.dataTransfer.files);
+      });
+    }
+
+    async function handlePdfFiles(fileList) {
+      const container = document.getElementById('pdfResultsContainer');
+      const list = document.getElementById('pdfResultsList');
+      container.classList.remove('hidden');
+
+      for (const file of fileList) {
+        if (!file.name.toLowerCase().endsWith('.pdf')) continue;
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          let fullText = '';
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            fullText += content.items.map(item => item.str).join(' ') + '\n';
+          }
+          const result = classifyAndIngestPdfText(file.name, fullText);
+          appendPdfLogCard(file.name, result);
+        } catch (err) {
+          console.error('PDF parse error:', err);
+          appendPdfLogCard(file.name, { type: 'ERROR', summary: 'No se pudo leer el contenido del PDF.', status: 'error' });
+        }
+      }
+
+      persistDbToLocalStorage();
+      refreshAllViews();
+    }
+
+    function classifyAndIngestPdfText(fileName, text) {
+      const upper = text.toUpperCase();
+      // Extract Chilean RUT
+      const rutMatch = text.match(/\b(\d{1,2}\.?\d{3}\.?\d{3}-[\dkK])\b/);
+      const rut = rutMatch ? formatRutPretty(rutMatch[1]) : 'SIN-RUT';
+
+      // Extract Name heuristic
+      const nameMatch = text.match(/(?:NOMBRE|TRABAJADOR|PASAJERO|SR\.?\(?A\)?)\s*:?\s*([A-ZÁÉÍÓÚÑ\s]{6,45})/i);
+      const extractedName = nameMatch ? nameMatch[1].trim().replace(/\s+/g, ' ').toUpperCase() : fileName.replace(/\.pdf$/i, '').toUpperCase();
+
+      // Extract Date heuristic (DD/MM/YYYY or DD-MM-YYYY or YYYY-MM-DD)
+      let isoDate = new Date().toISOString().slice(0, 10);
+      const dmyMatch = text.match(/\b(\d{2})[\/\-](\d{2})[\/\-](20\d{2})\b/);
+      if (dmyMatch) {
+        isoDate = `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}`;
+      }
+
+      // 1. PASAJES DE BUS (PlussChile / Kupos)
+      if (upper.includes('PLUSSCHILE') || upper.includes('KUPOS') || upper.includes('SALÓN CAMA') || upper.includes('SEMI CAMA') || upper.includes('BOLETO')) {
+        const boletoMatch = text.match(/(?:BOLETO|TICKET|N°)\s*:?\s*([A-Z0-9\-]{5,15})/i);
+        const montoMatch = text.match(/\$\s?(\d{1,3}(?:\.\d{3})+)/);
+        const monto = montoMatch ? parseInt(montoMatch[1].replace(/\./g, ''), 10) : 55000;
+        const servicio = upper.includes('SALÓN CAMA') || upper.includes('SALON CAMA') ? 'Salón Cama' : 'Semi Cama';
+        const empresa = upper.includes('PLUSS') ? 'PlussChile' : (upper.includes('KUPOS') ? 'Kupos.cl' : 'Bus Interurbano');
+
+        db.run(`INSERT INTO pasajes (nro_boleto, empresa, rut, pasajero, origen_destino, fecha_viaje, hora_viaje, servicio, monto, semana, contrato)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+          [boletoMatch ? boletoMatch[1] : 'PDF-' + Math.floor(Math.random()*9000+1000), empresa, rut, extractedName, 'Origen - Faena', isoDate, '21:00', servicio, monto, 'S48-2026', '4540008992']
+        );
+        return { type: 'PASAJE BUS', summary: `${empresa} • ${extractedName} (${rut}) • ${servicio} • $${monto.toLocaleString('es-CL')}`, status: 'info' };
+      }
+
+      // 2. FINIQUITOS BEMAX
+      if (upper.includes('FINIQUITO') || upper.includes('ART. 159') || upper.includes('ARTICULO 159')) {
+        const montoMatch = text.match(/\$\s?(\d{1,3}(?:\.\d{3})+)/);
+        const monto = montoMatch ? parseInt(montoMatch[1].replace(/\./g, ''), 10) : 350000;
+        const firmado = upper.includes('FIRMADO') || upper.includes('DEFONTANA') ? 1 : 0;
+
+        db.run(`INSERT INTO finiquitos (rut, nombre, periodo, contrato, total_pagar, firmado_defontana) VALUES (?,?,?,?,?,?)`,
+          [rut, extractedName, isoDate, '4540008992', monto, firmado]
+        );
+        return { type: 'FINIQUITO', summary: `${extractedName} (${rut}) • Total: $${monto.toLocaleString('es-CL')} • Defontana: ${firmado ? 'FIRMADO' : 'PENDIENTE'}`, status: 'warning' };
+      }
+
+      // 3. CONTRATO DE TRABAJO BEMAX / DEFONTANA
+      if (upper.includes('CONTRATO DE TRABAJO') || upper.includes('DEFONTANA') || upper.includes('VALIDADOR.DEFONTANA')) {
+        const contractMatch = text.match(/\b(454000\d{4})\b/);
+        const nroContrato = contractMatch ? contractMatch[1] : '4540008992';
+        const urlMatch = text.match(/(https?:\/\/validador\.defontana\.com\/validate\/[^\s]+)/i);
+        const urlDef = urlMatch ? urlMatch[1] : `https://validador.defontana.com/validate/BEMAX-${normalizeRut(rut)}`;
+        const firmado = (upper.includes('2/2') || upper.includes('FIRMADO POR LAS PARTES') || upper.includes('DEFONTANA')) ? 1 : 0;
+
+        upsertWorkerFromPdf(rut, extractedName, {
+          contrato: nroContrato,
+          nro_contrato_defontana: nroContrato,
+          firmado_defontana: firmado,
+          url_defontana: urlDef,
+          semana: 'S48-2026'
+        });
+        return { type: 'CONTRATO DEFONTANA', summary: `Contrato ${nroContrato} • ${extractedName} (${rut}) • Firmas: ${firmado ? '2/2 OK' : 'Pendiente'}`, status: 'success' };
+      }
+
+      // 4. PRÓRROGA / CARTA CONDUCTORA
+      if (upper.includes('PRORROGA') || upper.includes('PRÓRROGA') || upper.includes('CARTA CONDUCTORA')) {
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + 15);
+        const prorrogaIso = dmyMatch ? isoDate : futureDate.toISOString().slice(0, 10);
+
+        upsertWorkerFromPdf(rut, extractedName, {
+          fecha_prorroga: prorrogaIso,
+          validado_carta: 1
+        });
+        return { type: 'PRÓRROGA / CARTA', summary: `${extractedName} (${rut}) • Prórroga válida hasta ${prorrogaIso} • Carta Validada`, status: 'info' };
+      }
+
+      // 5. BATERÍA PREOCUPACIONAL
+      if (upper.includes('PREOCUPACIONAL') || upper.includes('ALTURA GEOGRAFICA') || upper.includes('ALTURA GEOGRÁFICA') || upper.includes('BATERIA')) {
+        let bateria = 'Batería Normal';
+        if (upper.includes('SOLDADOR') || upper.includes('METALES') || upper.includes('HUMOS')) bateria = 'Soldador/Metales';
+        else if (upper.includes('CONDUCTOR') || upper.includes('PSICOSENSOMETRICO')) bateria = 'Conductor';
+
+        const venc = new Date(isoDate);
+        venc.setFullYear(venc.getFullYear() + 1);
+        const vencIso = venc.toISOString().slice(0, 10);
+
+        upsertWorkerFromPdf(rut, extractedName, {
+          bateria_preoc: bateria,
+          vencimiento_preoc: vencIso,
+          clinica: upper.includes('PREOMED') ? 'PREOMED' : 'CLINISERVICE'
+        });
+        return { type: 'PREOCUPACIONAL', summary: `${extractedName} (${rut}) • ${bateria} • Vigente hasta ${vencIso}`, status: 'success' };
+      }
+
+      // 6. EXAMEN ALCOHOL Y DROGAS (DEFAULT / CLINISERVICE / PREOMED)
+      const isPositive = upper.includes('POSITIVO') && !upper.includes('NO POSITIVO');
+      let sustancia = '';
+      if (isPositive) {
+        if (upper.includes('MARIHUANA') || upper.includes('THC') || upper.includes('CANNABIS')) sustancia = 'THC / Marihuana';
+        else if (upper.includes('COCAINA') || upper.includes('COCAÍNA')) sustancia = 'Cocaína';
+        else if (upper.includes('ALCOHOL')) sustancia = 'Alcohol';
+        else sustancia = 'Sustancia detectada en panel';
+      }
+      const clinica = upper.includes('PREOMED') ? 'PREOMED' : 'CLINISERVICE';
+
+      upsertWorkerFromPdf(rut, extractedName, {
+        clinica,
+        fecha_ayd: isoDate,
+        resultado_ayd: isPositive ? 'POSITIVO' : 'NEGATIVO',
+        detalle_positivo: sustancia
+      });
+
+      return {
+        type: 'EXAMEN ALCOHOL & DROGAS',
+        summary: `${clinica} • ${extractedName} (${rut}) • Fecha: ${isoDate} • Resultado: ${isPositive ? '🚨 POSITIVO (' + sustancia + ')' : '✅ NEGATIVO'}`,
+        status: isPositive ? 'error' : 'success'
+      };
+    }
+
+    function upsertWorkerFromPdf(rut, nombre, fields) {
+      const existing = queryAll(`SELECT * FROM examenes WHERE REPLACE(REPLACE(UPPER(rut),'.',''),'-','') = ?`, [normalizeRut(rut)]);
+      if (existing.length) {
+        const w = existing[0];
+        const updates = Object.keys(fields).map(k => `${k} = ?`).join(', ');
+        const vals = [...Object.values(fields), w.id];
+        db.run(`UPDATE examenes SET ${updates} WHERE id = ?`, vals);
+      } else {
+        db.run(`INSERT INTO examenes (
+          rut, nombre, cargo, clinica, fecha_ayd, resultado_ayd, detalle_positivo, fecha_prorroga,
+          bateria_preoc, vencimiento_preoc, semana, contrato, nro_contrato_defontana,
+          firmado_defontana, url_defontana, validado_carta
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, [
+          rut,
+          nombre,
+          fields.cargo || 'OPERARIO ESPECIALISTA',
+          fields.clinica || 'CLINISERVICE',
+          fields.fecha_ayd || '',
+          fields.resultado_ayd || 'NEGATIVO',
+          fields.detalle_positivo || '',
+          fields.fecha_prorroga || '',
+          fields.bateria_preoc || 'Batería Normal',
+          fields.vencimiento_preoc || '',
+          fields.semana || '',
+          fields.contrato || '',
+          fields.nro_contrato_defontana || '',
+          fields.firmado_defontana || 0,
+          fields.url_defontana || '',
+          fields.validado_carta || 0
+        ]);
+      }
+    }
+
+    function appendPdfLogCard(fileName, res) {
+      const list = document.getElementById('pdfResultsList');
+      const colors = {
+        success: 'bg-emerald-50 border-emerald-200 text-emerald-900',
+        error: 'bg-red-50 border-red-300 text-red-900 font-bold',
+        warning: 'bg-amber-50 border-amber-200 text-amber-900',
+        info: 'bg-sky-50 border-sky-200 text-sky-900'
+      };
+      const div = document.createElement('div');
+      div.className = `p-3 rounded-xl border text-xs ${colors[res.status] || colors.info}`;
+      div.innerHTML = `
+        <div class="flex items-center justify-between font-bold">
+          <span>[${res.type}] ${fileName}</span>
+          <span class="text-[10px] uppercase opacity-75">Procesado</span>
+        </div>
+        <div class="mt-1">${res.summary}</div>
+      `;
+      list.prepend(div);
+    }
+
+    // =========================================================================
+    // 7. TAB 2: PROYECCIÓN SEMANA & GOOGLE SHEETS SYNC
+    // =========================================================================
+    async function syncGoogleSheetsUrl() {
+      const url = document.getElementById('googleSheetsUrl').value.trim();
+      if (!url) {
+        showToast('Ingrese una URL CSV pública de Google Sheets.', 'warning');
+        return;
+      }
+      try {
+        showToast('Descargando datos desde Google Sheets...', 'info');
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const csvText = await resp.text();
+        parseAndStoreSheetsCsv(csvText);
+      } catch (err) {
+        console.error(err);
+        showToast('No se pudo conectar a la URL (verifique que esté publicada como CSV). Puede subir el CSV localmente.', 'error');
+      }
+    }
+
+    function importSheetsCsvFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => parseAndStoreSheetsCsv(reader.result);
+      reader.readAsText(file, 'UTF-8');
+      event.target.value = '';
+    }
+
+    function parseAndStoreSheetsCsv(csvText) {
+      const wb = XLSX.read(csvText, { type: 'string' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      let count = 0;
+
+      const stmt = db.prepare(`INSERT OR REPLACE INTO ficha_postulantes_sheets (rut, nombre, cargo, telefono, correo, banco, tipo_cuenta, nro_cuenta) VALUES (?,?,?,?,?,?,?,?)`);
+      rows.forEach(r => {
+        const rutRaw = r.RUT || r.rut || r.Rut || Object.values(r)[0];
+        if (!rutRaw) return;
+        const rut = formatRutPretty(rutRaw);
+        stmt.run([
+          rut,
+          (r.Nombre || r.NOMBRE || r.nombre || '').toString().toUpperCase(),
+          (r.Cargo || r.CARGO || r.cargo || '').toString().toUpperCase(),
+          (r.Telefono || r.Teléfono || r.TELEFONO || '').toString(),
+          (r.Correo || r.Email || r.CORREO || '').toString(),
+          (r.Banco || r.BANCO || '').toString(),
+          (r.Tipo_Cuenta || r['Tipo Cuenta'] || r.TIPO || '').toString(),
+          (r.Nro_Cuenta || r['N° Cuenta'] || r.CUENTA || '').toString()
+        ]);
+        count++;
+      });
+      stmt.free();
+
+      persistDbToLocalStorage();
+      refreshAllViews();
+      showToast(`${count} fichas de postulantes sincronizadas correctamente.`, 'success');
+    }
+
+    function processBulkProjectionRuts() {
+      const raw = document.getElementById('projRutsTextarea').value;
+      const semana = document.getElementById('projSemanaInput').value.trim().toUpperCase() || 'S48-2026';
+      const contrato = document.getElementById('projContratoInput').value.trim() || '4540008992';
+
+      const tokens = raw.split(/[\n,;]+/).map(t => t.trim()).filter(Boolean);
+      if (!tokens.length) {
+        showToast('Pegue al menos un RUT para proyectar.', 'warning');
+        return;
+      }
+
+      const stmt = db.prepare(`INSERT OR REPLACE INTO proyeccion_semanal (rut, nombre, cargo, semana, contrato, estado_cruce) VALUES (?,?,?,?,?,?)`);
+      tokens.forEach(tok => {
+        const rut = formatRutPretty(tok);
+        const norm = normalizeRut(rut);
+        const ficha = queryAll(`SELECT * FROM ficha_postulantes_sheets WHERE REPLACE(REPLACE(UPPER(rut),'.',''),'-','') = ?`, [norm])[0];
+        const worker = queryAll(`SELECT * FROM examenes WHERE REPLACE(REPLACE(UPPER(rut),'.',''),'-','') = ?`, [norm])[0];
+
+        const nombre = (worker && worker.nombre) || (ficha && ficha.nombre) || 'POSTULANTE SIN FICHA';
+        const cargo = (worker && worker.cargo) || (ficha && ficha.cargo) || 'POR DEFINIR';
+
+        let estado = 'Sin Examen';
+        if (worker) {
+          const ayd = evaluateAydStatus(worker);
+          if (worker.firmado_defontana == 1) estado = 'Contratado';
+          else if (ayd.valid) estado = 'Exámenes OK';
+          else estado = ayd.label;
+        }
+
+        stmt.run([rut, nombre, cargo, semana, contrato, estado]);
+      });
+      stmt.free();
+
+      document.getElementById('projRutsTextarea').value = '';
+      persistDbToLocalStorage();
+      refreshAllViews();
+      showToast(`${tokens.length} RUTs procesados y cruzados en Proyección Semanal.`, 'success');
+    }
+
+    function renderProyeccionTable() {
+      const fichasCount = queryAll(`SELECT COUNT(*) as c FROM ficha_postulantes_sheets`)[0].c;
+      document.getElementById('sheetsCountBadge').textContent = `${fichasCount} fichas`;
+
+      const filterSem = document.getElementById('projFilterSemana').value;
+      const rows = queryAll(`SELECT * FROM proyeccion_semanal ORDER BY id DESC`).filter(r => filterSem === 'ALL' || r.semana === filterSem);
+
+      const tbody = document.getElementById('proyeccionTableBody');
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-400">No hay postulantes proyectados en esta semana.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = rows.map(r => {
+        const norm = normalizeRut(r.rut);
+        const ficha = queryAll(`SELECT * FROM ficha_postulantes_sheets WHERE REPLACE(REPLACE(UPPER(rut),'.',''),'-','') = ?`, [norm])[0];
+        const worker = queryAll(`SELECT * FROM examenes WHERE REPLACE(REPLACE(UPPER(rut),'.',''),'-','') = ?`, [norm])[0];
+
+        // Dynamic live status evaluation
+        let statusLabel = 'Sin Examen';
+        let statusClass = 'bg-slate-100 text-slate-700';
+        if (worker) {
+          const ayd = evaluateAydStatus(worker);
+          if (worker.firmado_defontana == 1) {
+            statusLabel = '✅ Contratado (Defontana)';
+            statusClass = 'bg-emerald-100 text-emerald-800 font-bold';
+          } else if (ayd.code === 'POSITIVO') {
+            statusLabel = '🚨 POSITIVO A&D';
+            statusClass = 'bg-red-600 text-white font-bold';
+          } else if (ayd.valid) {
+            statusLabel = '🩺 Exámenes OK';
+            statusClass = 'bg-teal-100 text-teal-800 font-bold';
+          } else {
+            statusLabel = `⚠️ ${ayd.label}`;
+            statusClass = 'bg-amber-100 text-amber-800 font-bold';
+          }
+        }
+
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-3 px-3">
+              <span class="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold text-[11px]">${r.semana}</span>
+              <div class="text-[11px] font-mono text-slate-500 mt-0.5">${r.contrato}</div>
+            </td>
+            <td class="py-3 px-3">
+              <div class="font-bold text-slate-900">${(ficha && ficha.nombre) || r.nombre}</div>
+              <div class="text-[11px] font-mono text-slate-500">${r.rut}</div>
+            </td>
+            <td class="py-3 px-3">
+              <div class="font-semibold text-slate-700">${(ficha && ficha.cargo) || r.cargo}</div>
+              <div class="text-[11px] text-slate-400">${ficha ? `${ficha.telefono} • ${ficha.correo}` : 'Sin datos contacto'}</div>
+            </td>
+            <td class="py-3 px-3">
+              ${ficha && ficha.banco
+                ? `<div class="font-semibold text-slate-700">${ficha.banco}</div><div class="text-[11px] text-slate-500">${ficha.tipo_cuenta}: ${ficha.nro_cuenta}</div>`
+                : '<span class="text-slate-400 italic">Sin datos bancarios</span>'}
+            </td>
+            <td class="py-3 px-3">
+              <span class="px-2.5 py-1 rounded-lg text-[11px] ${statusClass}">${statusLabel}</span>
+            </td>
+            <td class="py-3 px-3 text-right">
+              <button onclick="deleteProjectionRow(${r.id})" class="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"><i class="fa-solid fa-trash"></i></button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function deleteProjectionRow(id) {
+      db.run(`DELETE FROM proyeccion_semanal WHERE id = ?`, [id]);
+      persistDbToLocalStorage();
+      renderProyeccionTable();
+    }
+
+    function promoteProjectedToBase() {
+      const rows = queryAll(`SELECT * FROM proyeccion_semanal`);
+      let added = 0;
+      rows.forEach(r => {
+        const norm = normalizeRut(r.rut);
+        const exists = queryAll(`SELECT id FROM examenes WHERE REPLACE(REPLACE(UPPER(rut),'.',''),'-','') = ?`, [norm]);
+        if (!exists.length) {
+          db.run(`INSERT INTO examenes (rut, nombre, cargo, semana, contrato, resultado_ayd) VALUES (?,?,?,?,?,?)`,
+            [r.rut, r.nombre, r.cargo, r.semana, r.contrato, 'PENDIENTE']);
+          added++;
+        } else {
+          db.run(`UPDATE examenes SET semana = ?, contrato = ? WHERE id = ?`, [r.semana, r.contrato, exists[0].id]);
+        }
+      });
+      persistDbToLocalStorage();
+      refreshAllViews();
+      showToast(`Sincronización completa: ${added} nuevos registros creados en Base General.`, 'success');
+    }
+
+    // =========================================================================
+    // 8. TAB 3: CONTROL POR SEMANA (CONTRATADOS)
+    // =========================================================================
+    function saveWeeklyMeta() {
+      const val = parseInt(document.getElementById('metaDotacionInput').value, 10) || 25;
+      db.run(`INSERT OR REPLACE INTO metas_semanales VALUES ('GLOBAL', ?)`, [val]);
+      persistDbToLocalStorage();
+      renderSemanalView();
+      showToast(`Meta de dotación actualizada a ${val} trabajadores.`, 'success');
+    }
+
+    function renderSemanalView() {
+      const metaRow = queryAll(`SELECT meta_dotacion FROM metas_semanales WHERE clave = 'GLOBAL'`)[0];
+      const meta = metaRow ? metaRow.meta_dotacion : 25;
+      document.getElementById('metaDotacionInput').value = meta;
+
+      const selSem = document.getElementById('semanalSelectSemana').value;
+      const selCont = document.getElementById('semanalSelectContrato').value;
+
+      const workers = queryAll(`SELECT * FROM examenes`).filter(w => {
+        if (selSem !== 'ALL' && w.semana !== selSem) return false;
+        if (selCont !== 'ALL' && w.contrato !== selCont) return false;
+        return true;
+      });
+
+      const asignados = workers.length;
+      const exOk = workers.filter(w => evaluateAydStatus(w).valid).length;
+      const firmados = workers.filter(w => w.firmado_defontana == 1).length;
+      const faena = workers.filter(w => w.en_faena == 1).length;
+      const pct = Math.min(100, Math.round((firmados / Math.max(1, meta)) * 100));
+
+      document.getElementById('semanalCumplimientoPct').textContent = `${pct}%`;
+      document.getElementById('sem-stat-asignados').textContent = `${asignados} / ${meta}`;
+      document.getElementById('sem-bar-asignados').style.width = `${Math.min(100, (asignados/meta)*100)}%`;
+
+      document.getElementById('sem-stat-examenes').textContent = exOk;
+      document.getElementById('sem-bar-examenes').style.width = `${asignados ? (exOk/asignados)*100 : 0}%`;
+
+      document.getElementById('sem-stat-firmados').textContent = firmados;
+      document.getElementById('sem-bar-firmados').style.width = `${asignados ? (firmados/asignados)*100 : 0}%`;
+
+      document.getElementById('sem-stat-faena').textContent = faena;
+      document.getElementById('sem-bar-faena').style.width = `${asignados ? (faena/asignados)*100 : 0}%`;
+
+      const tbody = document.getElementById('semanalTableBody');
+      if (!workers.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-slate-400">No hay trabajadores asignados a esta selección.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = workers.map(w => {
+        const ayd = evaluateAydStatus(w);
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2.5 px-3 font-bold text-blue-700">${w.semana || '-'}</td>
+            <td class="py-2.5 px-3 font-mono">${w.contrato || '-'}</td>
+            <td class="py-2.5 px-3"><div class="font-bold">${w.nombre}</div><div class="text-[11px] text-slate-400">${w.rut}</div></td>
+            <td class="py-2.5 px-3">${w.cargo}</td>
+            <td class="py-2.5 px-3 font-mono">${w.nro_contrato_defontana || w.contrato || '-'}</td>
+            <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[11px] font-bold ${ayd.valid ? 'bg-teal-100 text-teal-800' : 'bg-red-100 text-red-800'}">${ayd.label}</span></td>
+            <td class="py-2.5 px-3 text-center">${w.firmado_defontana ? '✅' : '⏳'}</td>
+            <td class="py-2.5 px-3 text-center">${w.acreditado_siga ? '✅' : '⏳'}</td>
+            <td class="py-2.5 px-3 text-center">${w.en_faena ? '👷 SÍ' : '—'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // =========================================================================
+    // 9. TAB 4: EXECUTIVE DASHBOARD & INTERACTIVE CHARTS (Chart.js)
+    // =========================================================================
+    function renderDashboardCharts() {
+      const workers = queryAll(`SELECT * FROM examenes`);
+      const total = workers.length;
+      const metaRow = queryAll(`SELECT meta_dotacion FROM metas_semanales WHERE clave = 'GLOBAL'`)[0];
+      const meta = metaRow ? metaRow.meta_dotacion : 15;
+
+      const exOkList = workers.filter(w => evaluateAydStatus(w).valid);
+      const contList = workers.filter(w => w.firmado_defontana == 1);
+      const sigaList = workers.filter(w => w.acreditado_siga == 1);
+      const faenaList = workers.filter(w => w.en_faena == 1);
+
+      const pctRec = Math.min(100, Math.round((total / Math.max(1, meta)) * 100));
+      const pctEx = total ? Math.round((exOkList.length / total) * 100) : 0;
+      const pctCont = total ? Math.round((contList.length / total) * 100) : 0;
+      const pctSiga = total ? Math.round((sigaList.length / total) * 100) : 0;
+      const pctFaena = total ? Math.round((faenaList.length / total) * 100) : 0;
+
+      document.getElementById('gaugeValReclutamiento').textContent = `${pctRec}%`;
+      document.getElementById('gaugeSubReclutamiento').textContent = `${total} / ${meta} meta`;
+      drawDoughnutGauge('gaugeReclutamiento', pctRec, '#0F172A');
+
+      document.getElementById('gaugeValExamenes').textContent = `${pctEx}%`;
+      document.getElementById('gaugeSubExamenes').textContent = `${exOkList.length} de ${total} vigentes`;
+      drawDoughnutGauge('gaugeExamenes', pctEx, '#0D9488');
+
+      document.getElementById('gaugeValContratos').textContent = `${pctCont}%`;
+      document.getElementById('gaugeSubContratos').textContent = `${contList.length} de ${total} firmados`;
+      drawDoughnutGauge('gaugeContratos', pctCont, '#2563EB');
+
+      document.getElementById('gaugeValSiga').textContent = `${pctSiga}%`;
+      document.getElementById('gaugeSubSiga').textContent = `${sigaList.length} de ${total} acreditados`;
+      drawDoughnutGauge('gaugeSiga', pctSiga, '#7C3AED');
+
+      document.getElementById('gaugeValFaena').textContent = `${pctFaena}%`;
+      document.getElementById('gaugeSubFaena').textContent = `${faenaList.length} de ${total} en turno`;
+      drawDoughnutGauge('gaugeFaena', pctFaena, '#16A34A');
+
+      // Interactive Funnel Bar Chart
+      const stages = [
+        { label: '1. Nómina Reclutada', ok: workers, pending: [] },
+        { label: '2. Exámenes / Prórroga OK', ok: exOkList, pending: workers.filter(w => !evaluateAydStatus(w).valid) },
+        { label: '3. Contrato Defontana 2/2', ok: contList, pending: workers.filter(w => w.firmado_defontana != 1) },
+        { label: '4. Acreditado SIGA', ok: sigaList, pending: workers.filter(w => w.acreditado_siga != 1) },
+        { label: '5. En Faena (Operativo)', ok: faenaList, pending: workers.filter(w => w.en_faena != 1) }
+      ];
+
+      if (charts.funnel) charts.funnel.destroy();
+      const ctxFunnel = document.getElementById('funnelChart').getContext('2d');
+      charts.funnel = new Chart(ctxFunnel, {
+        type: 'bar',
+        data: {
+          labels: stages.map(s => s.label),
+          datasets: [{
+            label: 'Trabajadores en Etapa',
+            data: stages.map(s => s.ok.length),
+            backgroundColor: ['#1E293B', '#0D9488', '#2563EB', '#7C3AED', '#16A34A'],
+            borderRadius: 10
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          onClick: (e, elements) => {
+            if (!elements.length) return;
+            const idx = elements[0].index;
+            const st = stages[idx];
+            document.getElementById('funnelDetailBox').classList.remove('hidden');
+            document.getElementById('funnelDetailTitle').textContent = `Detalle Etapa: ${st.label}`;
+            document.getElementById('funnelOkCount').textContent = st.ok.length;
+            document.getElementById('funnelPendingCount').textContent = st.pending.length;
+            document.getElementById('funnelOkList').innerHTML = st.ok.map(w => `<div>• ${w.nombre} (${w.rut})</div>`).join('') || '<div class="italic text-slate-400">Ninguno</div>';
+            document.getElementById('funnelPendingList').innerHTML = st.pending.map(w => `<div>• ${w.nombre} (${w.rut})</div>`).join('') || '<div class="italic text-slate-400">Ninguno</div>';
+          }
+        }
+      });
+
+      // Specialty Distribution Chart
+      let mecanicos = 0, soldadores = 0, otros = 0;
+      workers.forEach(w => {
+        const c = (w.cargo || '').toUpperCase();
+        if (c.includes('MECANIC') || c.includes('MECÁNIC')) mecanicos++;
+        else if (c.includes('SOLDAD')) soldadores++;
+        else otros++;
+      });
+
+      if (charts.specialty) charts.specialty.destroy();
+      const ctxSpec = document.getElementById('specialtyChart').getContext('2d');
+      charts.specialty = new Chart(ctxSpec, {
+        type: 'doughnut',
+        data: {
+          labels: ['Mecánicos', 'Soldadores', 'Otros Cargos'],
+          datasets: [{
+            data: [mecanicos, soldadores, otros],
+            backgroundColor: ['#2563EB', '#F59E0B', '#64748B'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '65%',
+          plugins: { legend: { position: 'bottom' } }
+        }
+      });
+
+      document.getElementById('specialtyLegend').innerHTML = `
+        <div><div class="font-extrabold text-blue-600 text-base">${mecanicos}</div><div class="text-slate-500">Mecánicos</div></div>
+        <div><div class="font-extrabold text-amber-600 text-base">${soldadores}</div><div class="text-slate-500">Soldadores</div></div>
+        <div><div class="font-extrabold text-slate-700 text-base">${otros}</div><div class="text-slate-500">Otros Cargos</div></div>
+      `;
+    }
+
+    function drawDoughnutGauge(canvasId, pct, color) {
+      if (charts[canvasId]) charts[canvasId].destroy();
+      const ctx = document.getElementById(canvasId).getContext('2d');
+      charts[canvasId] = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          datasets: [{
+            data: [pct, Math.max(0, 100 - pct)],
+            backgroundColor: [color, '#E2E8F0'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '78%',
+          plugins: { tooltip: { enabled: false }, legend: { display: false } }
+        }
+      });
+    }
+
+    // =========================================================================
+    // 10. TAB 5: CONTROL GARITA / QR CARNET & SEMAPHORE
+    // =========================================================================
+    function toggleQrCamera() {
+      const wrapper = document.getElementById('qrReaderWrapper');
+      const btn = document.getElementById('toggleCameraBtn');
+
+      if (!cameraActive) {
+        wrapper.classList.remove('hidden');
+        html5QrScanner = new Html5Qrcode("qr-reader");
+        html5QrScanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 220, height: 220 } },
+          (decodedText) => {
+            document.getElementById('garitaScanInput').value = decodedText;
+            verifyGaritaAccess();
+          },
+          () => {}
+        ).then(() => {
+          cameraActive = true;
+          btn.innerHTML = `<i class="fa-solid fa-stop"></i> Detener Cámara`;
+          btn.classList.replace('bg-slate-900', 'bg-red-600');
+        }).catch(err => {
+          wrapper.classList.add('hidden');
+          showToast('No se pudo acceder a la cámara web. Use pistola QR USB o ingrese el RUT.', 'warning');
+        });
+      } else {
+        if (html5QrScanner) {
+          html5QrScanner.stop().then(() => {
+            wrapper.classList.add('hidden');
+            cameraActive = false;
+            btn.innerHTML = `<i class="fa-solid fa-camera"></i> Activar Cámara`;
+            btn.classList.replace('bg-red-600', 'bg-slate-900');
+          });
+        }
+      }
+    }
+
+    function verifyGaritaAccess() {
+      const rawInput = document.getElementById('garitaScanInput').value.trim();
+      if (!rawInput) return;
+
+      // Extract RUN from Chilean Civil Registry URL or raw RUT
+      let extractedRut = rawInput;
+      const runUrlMatch = rawInput.match(/[?&]RUN=([0-9\.]+-[0-9kK])/i);
+      if (runUrlMatch) {
+        extractedRut = runUrlMatch[1];
+      } else {
+        const rutInText = rawInput.match(/(\d{1,2}\.?\d{3}\.?\d{3}-[\dkK])/);
+        if (rutInText) extractedRut = rutInText[1];
+      }
+
+      const norm = normalizeRut(extractedRut);
+      const prettyRut = formatRutPretty(extractedRut);
+      const worker = queryAll(`SELECT * FROM examenes WHERE REPLACE(REPLACE(UPPER(rut),'.',''),'-','') = ?`, [norm])[0];
+
+      const card = document.getElementById('garitaSemaphoreCard');
+      const iconBox = document.getElementById('semaphoreIconBox');
+      const badge = document.getElementById('semaphoreBadge');
+      const title = document.getElementById('semaphoreWorkerName');
+      const reason = document.getElementById('semaphoreReason');
+      const grid = document.getElementById('semaphoreDetailsGrid');
+
+      let logStatus = 'ROJO';
+
+      if (!worker) {
+        card.className = 'lg:col-span-7 glass-card p-6 flex flex-col justify-center items-center text-center min-h-[380px] border-2 border-red-500 bg-red-50/40';
+        iconBox.className = 'w-24 h-24 rounded-full bg-red-600 text-white flex items-center justify-center text-4xl mb-4 shadow-lg';
+        iconBox.innerHTML = '<i class="fa-solid fa-ban"></i>';
+        badge.className = 'px-4 py-1 rounded-full bg-red-600 text-white text-xs font-extrabold uppercase tracking-wider mb-2';
+        badge.textContent = '🔴 ACCESO DENEGADO — NO REGISTRADO';
+        title.textContent = `RUT ${prettyRut} no existe en Base RRHH`;
+        reason.textContent = 'El trabajador no cuenta con ficha de acreditación ni exámenes cargados en BEMAX SPA.';
+        grid.classList.add('hidden');
+      } else {
+        const ayd = evaluateAydStatus(worker);
+        const preoc = evaluatePreocStatus(worker);
+        grid.classList.remove('hidden');
+        grid.classList.add('grid');
+        grid.innerHTML = `
+          <div class="p-3 rounded-xl bg-white border border-slate-200">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Examen A&D</div>
+            <div class="text-xs font-extrabold mt-0.5 ${ayd.valid ? 'text-emerald-600' : 'text-red-600'}">${ayd.label}</div>
+          </div>
+          <div class="p-3 rounded-xl bg-white border border-slate-200">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Preocupacional</div>
+            <div class="text-xs font-extrabold mt-0.5 ${preoc.valid ? 'text-teal-700' : 'text-amber-600'}">${preoc.label}</div>
+          </div>
+          <div class="p-3 rounded-xl bg-white border border-slate-200">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Defontana 2/2</div>
+            <div class="text-xs font-extrabold mt-0.5 ${worker.firmado_defontana ? 'text-blue-600' : 'text-amber-600'}">${worker.firmado_defontana ? 'FIRMADO' : 'PENDIENTE'}</div>
+          </div>
+          <div class="p-3 rounded-xl bg-white border border-slate-200">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Pase SIGA</div>
+            <div class="text-xs font-extrabold mt-0.5 ${worker.acreditado_siga ? 'text-purple-600' : 'text-amber-600'}">${worker.acreditado_siga ? 'ACREDITADO' : 'PENDIENTE'}</div>
+          </div>
+        `;
+
+        if (ayd.code === 'POSITIVO' || !ayd.valid) {
+          // RED LIGHT
+          logStatus = 'ROJO';
+          card.className = 'lg:col-span-7 glass-card p-6 flex flex-col justify-center items-center text-center min-h-[380px] border-2 border-red-600 bg-red-50/50';
+          iconBox.className = 'w-24 h-24 rounded-full bg-red-600 text-white flex items-center justify-center text-4xl mb-4 shadow-lg pulse-danger';
+          iconBox.innerHTML = '<i class="fa-solid fa-hand"></i>';
+          badge.className = 'px-4 py-1 rounded-full bg-red-600 text-white text-xs font-extrabold uppercase tracking-wider mb-2';
+          badge.textContent = '🔴 INGRESO BLOQUEADO';
+          title.textContent = `${worker.nombre} (${worker.rut})`;
+          reason.textContent = ayd.code === 'POSITIVO'
+            ? `ALERTA CRÍTICA: Resultado POSITIVO en Alcohol y Drogas (${worker.detalle_positivo}). Prohibido el ingreso a faena.`
+            : `Examen de Alcohol y Drogas ${ayd.label}. Requiere renovación o carta de prórroga vigente.`;
+        } else if (!worker.firmado_defontana || !worker.acreditado_siga || !preoc.valid) {
+          // AMBER LIGHT (A&D OK, minor admin pending)
+          logStatus = 'ÁMBAR';
+          const nowTime = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+          db.run(`UPDATE examenes SET en_faena = 1, hora_faena = ? WHERE id = ?`, [nowTime, worker.id]);
+          persistDbToLocalStorage();
+          refreshAllViews();
+
+          card.className = 'lg:col-span-7 glass-card p-6 flex flex-col justify-center items-center text-center min-h-[380px] border-2 border-amber-500 bg-amber-50/50';
+          iconBox.className = 'w-24 h-24 rounded-full bg-amber-500 text-white flex items-center justify-center text-4xl mb-4 shadow-lg';
+          iconBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+          badge.className = 'px-4 py-1 rounded-full bg-amber-500 text-white text-xs font-extrabold uppercase tracking-wider mb-2';
+          badge.textContent = '🟡 APROBADO CON OBSERVACIÓN ADMINISTRATIVA';
+          title.textContent = `${worker.nombre} (${worker.rut})`;
+          reason.textContent = `A&D Vigente (${ayd.label}). Marcado En Faena (${nowTime}), pero presenta pendientes administrativos (Firma Defontana / SIGA / Preocupacional).`;
+        } else {
+          // GREEN LIGHT
+          logStatus = 'VERDE';
+          const nowTime = new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+          db.run(`UPDATE examenes SET en_faena = 1, hora_faena = ? WHERE id = ?`, [nowTime, worker.id]);
+          persistDbToLocalStorage();
+          refreshAllViews();
+
+          card.className = 'lg:col-span-7 glass-card p-6 flex flex-col justify-center items-center text-center min-h-[380px] border-2 border-emerald-500 bg-emerald-50/50';
+          iconBox.className = 'w-24 h-24 rounded-full bg-emerald-600 text-white flex items-center justify-center text-4xl mb-4 shadow-lg';
+          iconBox.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+          badge.className = 'px-4 py-1 rounded-full bg-emerald-600 text-white text-xs font-extrabold uppercase tracking-wider mb-2';
+          badge.textContent = '🟢 INGRESO AUTORIZADO — MARCADO EN FAENA';
+          title.textContent = `${worker.nombre} (${worker.rut})`;
+          reason.textContent = `Documentación 100% al día (${worker.cargo}). Registro de ingreso a faena guardado automáticamente a las ${nowTime} hrs.`;
+        }
+      }
+
+      // Append to history
+      const hist = document.getElementById('garitaHistoryList');
+      if (hist.querySelector('.italic')) hist.innerHTML = '';
+      const badgeCol = logStatus === 'VERDE' ? 'bg-emerald-100 text-emerald-800' : (logStatus === 'ÁMBAR' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800');
+      const item = document.createElement('div');
+      item.className = 'p-2 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between';
+      item.innerHTML = `
+        <div><span class="font-bold">${worker ? worker.nombre : prettyRut}</span> <span class="text-slate-400">(${new Date().toLocaleTimeString('es-CL', {hour:'2-digit', minute:'2-digit'})})</span></div>
+        <span class="px-2 py-0.5 rounded font-bold text-[10px] ${badgeCol}">${logStatus}</span>
+      `;
+      hist.prepend(item);
+      document.getElementById('garitaScanInput').value = '';
+    }
+
+    // =========================================================================
+    // 11. TAB 6: CONTROL DE PASAJES
+    // =========================================================================
+    function openPasajeModal() {
+      document.getElementById('pasajeModal').classList.remove('hidden');
+      document.getElementById('pasajeModal').classList.add('flex');
+    }
+
+    function savePasajeForm(e) {
+      e.preventDefault();
+      db.run(`INSERT INTO pasajes (nro_boleto, empresa, rut, pasajero, origen_destino, fecha_viaje, hora_viaje, servicio, monto, semana, contrato)
+              VALUES (?,?,?,?,?,?,?,?,?,?,?)`, [
+        document.getElementById('pm-boleto').value.trim(),
+        document.getElementById('pm-empresa').value.trim(),
+        formatRutPretty(document.getElementById('pm-rut').value.trim()),
+        document.getElementById('pm-nombre').value.trim().toUpperCase(),
+        document.getElementById('pm-tramo').value.trim(),
+        document.getElementById('pm-fecha').value || new Date().toISOString().slice(0,10),
+        '21:00',
+        document.getElementById('pm-servicio').value,
+        parseInt(document.getElementById('pm-monto').value, 10) || 0,
+        document.getElementById('pm-semana').value.trim().toUpperCase(),
+        document.getElementById('pm-contrato').value.trim()
+      ]);
+      persistDbToLocalStorage();
+      document.getElementById('pasajeModal').classList.add('hidden');
+      renderPasajesView();
+      showToast('Pasaje registrado correctamente.', 'success');
+    }
+
+    function renderPasajesView() {
+      const rows = queryAll(`SELECT * FROM pasajes ORDER BY id DESC`);
+      let totalMonto = 0, cama = 0, semi = 0;
+      const byWeek = {};
+
+      rows.forEach(r => {
+        totalMonto += (r.monto || 0);
+        if ((r.servicio || '').toLowerCase().includes('salón')) cama++;
+        else semi++;
+        const wk = r.semana || 'S/N';
+        byWeek[wk] = (byWeek[wk] || 0) + (r.monto || 0);
+      });
+
+      document.getElementById('pas-kpi-total').textContent = rows.length;
+      document.getElementById('pas-kpi-monto').textContent = '$' + totalMonto.toLocaleString('es-CL');
+      document.getElementById('pas-kpi-cama').textContent = cama;
+      document.getElementById('pas-kpi-semicama').textContent = semi;
+
+      const tbody = document.getElementById('pasajesTableBody');
+      tbody.innerHTML = rows.length ? rows.map(r => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-2.5 px-3"><div class="font-bold text-slate-900">${r.nro_boleto}</div><div class="text-[11px] text-slate-400">${r.empresa}</div></td>
+          <td class="py-2.5 px-3"><div class="font-bold">${r.pasajero}</div><div class="text-[11px] font-mono text-slate-500">${r.rut}</div></td>
+          <td class="py-2.5 px-3"><div>${r.origen_destino}</div><div class="text-[11px] text-slate-400">${r.fecha_viaje} ${r.hora_viaje || ''}</div></td>
+          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold">${r.servicio}</span></td>
+          <td class="py-2.5 px-3"><span class="font-bold">${r.semana}</span><div class="text-[11px] text-slate-400">${r.contrato}</div></td>
+          <td class="py-2.5 px-3 text-right font-extrabold text-slate-900">$${(r.monto || 0).toLocaleString('es-CL')}</td>
+          <td class="py-2.5 px-3 text-right">
+            <button onclick="deletePasaje(${r.id})" class="p-1 text-slate-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
+          </td>
+        </tr>
+      `).join('') : `<tr><td colspan="7" class="py-8 text-center text-slate-400">No hay pasajes registrados.</td></tr>`;
+
+      if (charts.pasajes) charts.pasajes.destroy();
+      const ctx = document.getElementById('pasajesChart').getContext('2d');
+      charts.pasajes = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(byWeek),
+          datasets: [{
+            label: 'Monto CLP',
+            data: Object.values(byWeek),
+            backgroundColor: '#0284C7',
+            borderRadius: 8
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+    }
+
+    function deletePasaje(id) {
+      db.run(`DELETE FROM pasajes WHERE id = ?`, [id]);
+      persistDbToLocalStorage();
+      renderPasajesView();
+    }
+
+    // =========================================================================
+    // 12. TAB 7: CONTROL DE FINIQUITOS
+    // =========================================================================
+    function openFiniquitoModal() {
+      document.getElementById('finiquitoModal').classList.remove('hidden');
+      document.getElementById('finiquitoModal').classList.add('flex');
+    }
+
+    function saveFiniquitoForm(e) {
+      e.preventDefault();
+      db.run(`INSERT INTO finiquitos (rut, nombre, periodo, contrato, total_pagar, firmado_defontana) VALUES (?,?,?,?,?,?)`, [
+        formatRutPretty(document.getElementById('fm-rut').value.trim()),
+        document.getElementById('fm-nombre').value.trim().toUpperCase(),
+        document.getElementById('fm-periodo').value.trim(),
+        document.getElementById('fm-contrato').value.trim(),
+        parseInt(document.getElementById('fm-monto').value, 10) || 0,
+        document.getElementById('fm-firmado').checked ? 1 : 0
+      ]);
+      persistDbToLocalStorage();
+      document.getElementById('finiquitoModal').classList.add('hidden');
+      renderFiniquitosView();
+      showToast('Finiquito registrado correctamente.', 'success');
+    }
+
+    function renderFiniquitosView() {
+      const rows = queryAll(`SELECT * FROM finiquitos ORDER BY id DESC`);
+      let totalMonto = 0, firmados = 0, pendientes = 0;
+      const byContract = {};
+
+      rows.forEach(r => {
+        totalMonto += (r.total_pagar || 0);
+        if (r.firmado_defontana == 1) firmados++;
+        else pendientes++;
+        const ct = r.contrato || 'S/C';
+        byContract[ct] = (byContract[ct] || 0) + (r.total_pagar || 0);
+      });
+
+      document.getElementById('fin-kpi-total').textContent = rows.length;
+      document.getElementById('fin-kpi-monto').textContent = '$' + totalMonto.toLocaleString('es-CL');
+      document.getElementById('fin-kpi-firmados').textContent = firmados;
+      document.getElementById('fin-kpi-pendientes').textContent = pendientes;
+
+      const tbody = document.getElementById('finiquitosTableBody');
+      tbody.innerHTML = rows.length ? rows.map(r => {
+        const norm = normalizeRut(r.rut);
+        const ficha = queryAll(`SELECT * FROM ficha_postulantes_sheets WHERE REPLACE(REPLACE(UPPER(rut),'.',''),'-','') = ?`, [norm])[0];
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2.5 px-3"><div class="font-bold text-slate-900">${r.nombre}</div><div class="text-[11px] font-mono text-slate-500">${r.rut}</div></td>
+            <td class="py-2.5 px-3"><div>${r.periodo}</div><div class="text-[11px] font-mono text-slate-400">Contrato: ${r.contrato}</div></td>
+            <td class="py-2.5 px-3">
+              ${ficha && ficha.banco
+                ? `<div class="font-semibold text-slate-700">${ficha.banco}</div><div class="text-[11px] text-slate-500">${ficha.tipo_cuenta} • ${ficha.nro_cuenta}</div>`
+                : '<span class="text-slate-400 italic">Sin cruce bancario</span>'}
+            </td>
+            <td class="py-2.5 px-3 text-right font-extrabold text-slate-900">$${(r.total_pagar || 0).toLocaleString('es-CL')}</td>
+            <td class="py-2.5 px-3 text-center">
+              <button onclick="toggleFiniquitoFirma(${r.id})" class="px-2.5 py-1 rounded-lg text-[11px] font-bold ${r.firmado_defontana ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-800'}">
+                ${r.firmado_defontana ? 'Firmado OK' : 'Pendiente'}
+              </button>
+            </td>
+            <td class="py-2.5 px-3 text-right">
+              <button onclick="deleteFiniquito(${r.id})" class="p-1 text-slate-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
+            </td>
+          </tr>
+        `;
+      }).join('') : `<tr><td colspan="6" class="py-8 text-center text-slate-400">No hay finiquitos registrados.</td></tr>`;
+
+      if (charts.finiquitos) charts.finiquitos.destroy();
+      const ctx = document.getElementById('finiquitosChart').getContext('2d');
+      charts.finiquitos = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(byContract),
+          datasets: [{
+            label: 'Total CLP',
+            data: Object.values(byContract),
+            backgroundColor: '#D97706',
+            borderRadius: 8
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
+    }
+
+    function toggleFiniquitoFirma(id) {
+      db.run(`UPDATE finiquitos SET firmado_defontana = CASE WHEN firmado_defontana = 1 THEN 0 ELSE 1 END WHERE id = ?`, [id]);
+      persistDbToLocalStorage();
+      renderFiniquitosView();
+    }
+
+    function deleteFiniquito(id) {
+      db.run(`DELETE FROM finiquitos WHERE id = ?`, [id]);
+      persistDbToLocalStorage();
+      renderFiniquitosView();
+    }
+
+    // =========================================================================
+    // 13. UI NAVIGATION, CLOCK, TOASTS & CUSTOM CONFIRM MODAL
+    // =========================================================================
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+      document.getElementById(`view-${tabId}`).classList.remove('hidden');
+
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('tab-active');
+        btn.classList.add('text-slate-300', 'hover:bg-slate-800');
+      });
+      const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+      activeBtn.classList.add('tab-active');
+      activeBtn.classList.remove('text-slate-300', 'hover:bg-slate-800');
+
+      if (tabId === 'dashboard') renderDashboardCharts();
+      if (tabId === 'semanal') renderSemanalView();
+      if (tabId === 'pasajes') renderPasajesView();
+      if (tabId === 'finiquitos') renderFiniquitosView();
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clockDisplay').textContent = now.toLocaleDateString('es-CL', {
+        weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const styles = {
+        success: 'bg-emerald-600 text-white',
+        error: 'bg-red-600 text-white',
+        warning: 'bg-amber-500 text-slate-950',
+        info: 'bg-slate-900 text-white border border-slate-700'
+      };
+      const icons = {
+        success: 'fa-circle-check',
+        error: 'fa-triangle-exclamation',
+        warning: 'fa-circle-exclamation',
+        info: 'fa-circle-info'
+      };
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto px-4 py-3 rounded-xl shadow-xl text-xs font-semibold flex items-center gap-2.5 transition-all ${styles[type] || styles.info}`;
+      toast.innerHTML = `<i class="fa-solid ${icons[type] || icons.info} text-sm"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3800);
+    }
+
+    function openConfirmModal(title, msg, onConfirm) {
+      document.getElementById('confirmModalTitle').textContent = title;
+      document.getElementById('confirmModalMsg').textContent = msg;
+      const btn = document.getElementById('confirmModalBtn');
+      btn.onclick = () => {
+        closeConfirmModal();
+        onConfirm();
+      };
+      document.getElementById('confirmModal').classList.remove('hidden');
+      document.getElementById('confirmModal').classList.add('flex');
+    }
+
+    function closeConfirmModal() {
+      document.getElementById('confirmModal').classList.add('hidden');
+      document.getElementById('confirmModal').classList.remove('flex');
+    }
+  </script>
+</body>
+</html>
